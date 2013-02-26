@@ -1,7 +1,5 @@
 @charset "UTF-8";
 
-@import url(http://fonts.googleapis.com/css?family=Exo);
-
 body {
 	font-family: 'Exo', sans-serif;
 	font-size: 12px;
@@ -39,7 +37,7 @@ div.form-container form {
     background-color: #f0f0f0;
 }
 table.dataTable th {
-    background: #5689ab;
+    background-color: #5689ab;
     color: #fff;
 }
 table.dataTable tr.odd,

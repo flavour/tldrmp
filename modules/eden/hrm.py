@@ -130,12 +130,13 @@ class S3HRModel(S3Model):
             default_site = auth.user.site_id if auth.is_logged_in() else None
 
         tablename = "hrm_human_resource"
+        realms = auth.permission.permitted_realms(tablename, method="create")
         table = self.define_table(tablename,
                                   super_link("track_id", "sit_trackable"),
                                   self.org_organisation_id(
                                     label = organisation_label,
                                     requires = self.org_organisation_requires(required=True,
-                                                                              updateable=True),
+                                                                              realms=realms),
                                     #widget = None,
                                     widget=S3OrganisationAutocompleteWidget(
                                         default_from_profile=True),
@@ -145,7 +146,7 @@ class S3HRModel(S3Model):
                                              label=settings.get_org_site_label(),
                                              instance_types = auth.org_site_types,
                                              orderby = "org_site.name",
-                                             updateable = True,
+                                             realms = realms,
                                              not_filterby = "obsolete",
                                              not_filter_opts = [True],
                                              default = default_site,
@@ -4531,9 +4532,10 @@ def hrm_configure_pr_group_membership():
         Configures the labels and CRUD Strings of pr_group_membership
         for "Team"
     """
-    s3 = current.response.s3
-    s3db = current.s3db
+
     T = current.T
+    s3db = current.s3db
+    s3 = current.response.s3
 
     mtable = s3db.pr_group_membership
     mtable.group_id.label = T("Team ID")
@@ -4544,7 +4546,7 @@ def hrm_configure_pr_group_membership():
         title_display = T("Membership Details"),
         title_list = T("Team Members"),
         title_update = T("Edit Membership"),
-        title_search = T("Search Member"),
+        title_search = T("Search Members"),
         subtitle_create = T("Add New Team Member"),
         label_list_button = T("List Members"),
         label_create_button = T("Add Team Member"),
@@ -4555,10 +4557,11 @@ def hrm_configure_pr_group_membership():
         msg_list_empty = T("No Members currently registered"))
 
     s3db.configure("pr_group_membership",
-                    list_fields=["id",
-                                 "person_id",
-                                 "group_head",
-                                 "description"])
+                   list_fields=["id",
+                                "person_id",
+                                "group_head",
+                                "description",
+                                ])
 
 # =============================================================================
 def hrm_group_controller():
@@ -4567,10 +4570,10 @@ def hrm_group_controller():
         - uses the group table from PR
     """
 
+    T = current.T
+    s3db = current.s3db
     s3 = current.response.s3
 
-    s3db = current.s3db
-    T = current.T
     tablename = "pr_group"
     table = s3db[tablename]
 
@@ -4586,7 +4589,7 @@ def hrm_group_controller():
     # Only show Relief Teams
     # Do not show system groups
     s3.filter = (table.system == False) & \
-                    (_group_type == 3)
+                (_group_type == 3)
 
     # CRUD Strings
     ADD_TEAM = T("Add Team")
@@ -4610,7 +4613,13 @@ def hrm_group_controller():
                    create_next = URL(f="group",
                                      args=["[id]", "group_membership"]))
 
-    hrm_configure_pr_group_membership()
+    # Pre-process
+    def prep(r):
+        if r.interactive:
+            if r.component_name == "group_membership":
+                hrm_configure_pr_group_membership()
+        return True
+    s3.prep = prep
 
     # Post-process
     def postp(r, output):
@@ -4630,12 +4639,11 @@ def hrm_group_controller():
         return output
     s3.postp = postp
 
-    tabs = [
-            (T("Team Details"), None),
+    tabs = [(T("Team Details"), None),
             # Team should be contacted either via the Leader or
             # simply by sending a message to the group as a whole.
             #(T("Contact Data"), "contact"),
-            (T("Members"), "group_membership")
+            (T("Members"), "group_membership"),
             ]
 
     output = current.rest_controller("pr", "group",

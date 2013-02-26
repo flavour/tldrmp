@@ -1064,7 +1064,8 @@ class S3GroupModel(S3Model):
                   super_entity="pr_pentity",
                   deduplicate=self.group_deduplicate,
                   main="name",
-                  extra="description")
+                  extra="description",
+                  )
 
         # Reusable field
         if current.request.controller in ("hrm", "vol"):
@@ -1148,16 +1149,29 @@ class S3GroupModel(S3Model):
                 msg_record_deleted = T("Membership deleted"),
                 msg_list_empty = T("No Members currently registered"))
 
+        # Search method
+        search_method = S3Search(
+            name="group_membership_search_simple",
+            label=T("Name"),
+            comment=T("To search for a member, enter any portion of the name of the person or group. You may use % as wildcard. Press 'Search' without input to list all members."),
+            field=["group_id$name",
+                   "person_id$first_name",
+                   "person_id$middle_name",
+                   "person_id$last_name",
+                   ]
+            )
+
         # Resource configuration
         configure(tablename,
                   onaccept = self.group_membership_onaccept,
                   ondelete = self.group_membership_onaccept,
-                  list_fields=["id",
-                               "group_id",
-                               "person_id",
-                               "group_head",
-                               "description"
-                               ])
+                  search_method = search_method,
+                  list_fields = ["id",
+                                 "group_id",
+                                 "person_id",
+                                 "group_head",
+                                 "description"
+                                 ])
 
         # ---------------------------------------------------------------------
         # Pass names back to global scope (s3.*)
@@ -4813,6 +4827,8 @@ def pr_get_descendants(pe_ids, skip=[], entity_type=None, ids=True):
 
         @param pe_ids: person entity ID or list of IDs
         @param skip: list of person entity IDs to skip during descending
+        @param entity_type: optional filter to a specific entity_type
+        @param ids: whether to return a list of ids or nodes
 
         @returns: a list of PE-IDs
     """
@@ -4861,7 +4877,6 @@ def pr_get_descendants(pe_ids, skip=[], entity_type=None, ids=True):
 # =============================================================================
 # Internal Path Tools
 # =============================================================================
-#
 def pr_rebuild_path(pe_id, clear=False):
     """
         Rebuild the ancestor path of all roles in the OU hierarchy a person

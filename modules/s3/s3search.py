@@ -29,9 +29,9 @@
     OTHER DEALINGS IN THE SOFTWARE.
 """
 
+import datetime
 import re
 import string
-import datetime
 
 try:
     import json # try stdlib (Python 2.6)
