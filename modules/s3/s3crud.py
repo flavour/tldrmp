@@ -1549,7 +1549,7 @@ class S3CRUD(S3Method):
         orderby = get_config("list_orderby", None)
         if orderby is None:
             if "created_on" in resource.fields:
-                default_orderby = "created_on desc"
+                default_orderby = ~(resource.table["created_on"])
             else:
                 for f in list_fields:
                     rfield = resource.resolve_selector(f)
@@ -1643,7 +1643,13 @@ class S3CRUD(S3Method):
                 # Pagination data
                 vars = dict([(k,v) for k, v in r.get_vars.iteritems()
                                    if k not in ("start", "limit")])
-                ajax_url = r.url(representation="dl", vars=vars)
+
+                # Allow customization of the datalist Ajax-URL
+                # Note: the Ajax-URL must use the .dl representation and
+                # plain.html view for pagination to work properly!
+                ajax_url = attr.get("list_ajaxurl", None)
+                if not ajax_url:
+                    ajax_url = r.url(representation="dl", vars=vars)
                 dl_data = {
                     "startindex": start if start else 0,
                     "maxitems": limit if limit else numrows,
