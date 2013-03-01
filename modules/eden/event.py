@@ -99,6 +99,7 @@ class S3EventModel(S3Model):
                                    label=T("Name")),
                              Field("exercise", "boolean",
                                    represent = lambda opt: "√" if opt else NONE,
+                                   default = False,
                                    #comment = DIV(_class="tooltip",
                                    #              _title="%s|%s" % (T("Exercise"),
                                                                    # Should!
@@ -157,11 +158,13 @@ class S3EventModel(S3Model):
                                    )
 
         configure(tablename,
+                  orderby=~table.zero_hour,
                   update_onaccept=self.event_update_onaccept,
                   deduplicate=self.event_duplicate,
                   list_fields = ["id",
                                  "name",
                                  (T("Location"), "location.name"),
+                                 "zero_hour",
                                  "exercise",
                                  "closed",
                                  "comments",

@@ -16,10 +16,14 @@ form {
 }
 
 /* Over-ride widgets */
+/*
 div#dl-container {
     clear: none;
-}
+}*/
 #datalist-header {
+    display: none;
+}
+#event_datalist-header {
     display: none;
 }
 
