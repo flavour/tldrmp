@@ -8,7 +8,7 @@ from gluon.storage import Storage
 
 from s3.s3crud import S3CRUD
 from s3.s3search import S3DateFilter, S3OptionsFilter, S3TextFilter
-from s3.s3utils import s3_auth_user_represent_name, s3_avatar_represent
+from s3.s3utils import s3_auth_user_represent_name, s3_avatar_represent, s3_unicode
 
 # =============================================================================
 class index():
@@ -27,6 +27,14 @@ class datalist():
         return homepage()
 
 # =============================================================================
+class datalist_dl_post():
+    """ AJAX URL for CMS Posts (for Homepage) """
+
+    def __call__(self):
+
+        return homepage()
+
+# =============================================================================
 def homepage():
     """
         Custom Homepage
@@ -37,6 +45,7 @@ def homepage():
     s3db = current.s3db
     request = current.request
     response = current.response
+    s3 = response.s3
 
     table = s3db.cms_post
 
@@ -68,7 +77,9 @@ def homepage():
                    ]
 
     filter_widgets = [S3TextFilter(["body"],
-                                   label=""),
+                                   label="",
+                                   _class="filter-search",
+                                   _placeholder=T("Search").upper()),
                       S3OptionsFilter("location_id",
                                       label=T("Filter by Location"),
                                       represent="%(name)s",
@@ -82,66 +93,101 @@ def homepage():
                       ]
 
     s3db.configure("cms_post",
-                   orderby=~table.created_on,
                    create_next = url_next,
                    update_next = url_next,
                    list_fields = list_fields,
+                   filter_formstyle = filter_formstyle,
+                   filter_submit = (T("Filter Results"), "btn btn-primary"),
                    filter_widgets = filter_widgets,
                    list_layout = list_layout,
                    )
 
-    request.args = ["datalist"]
-    output = current.rest_controller("cms", "post")
+    s3.dl_pagelength = 5
 
-    # Set Title & View after REST Controller, in order to override
-    response.title = current.deployment_settings.get_system_name()
-    view = path.join(request.folder, "private", "templates",
-                     "TLDRMP", "views", "index.html")
-    try:
-        # Pass view as file not str to work in compiled mode
-        response.view = open(view, "rb")
-    except IOError:
-        from gluon.http import HTTP
-        raise HTTP("404", "Unable to open Custom View: %s" % view)
-
-    # Latest 5 Disasters
-    resource = s3db.resource("event_event")
-    list_fields = ["name",
-                   "zero_hour",
-                   "closed",
-                   ]
-    datalist, numrows, ids = resource.datalist(fields=list_fields,
-                                               start=None,
-                                               limit=5,
-                                               listid="event_datalist",
-                                               layout=render_homepage_events)
-    if numrows == 0:
-        # Empty table or just no match?
-
-        table = resource.table
-        if "deleted" in table:
-            available_records = current.db(table.deleted != True)
-        else:
-            available_records = current.db(table._id > 0)
-        if available_records.select(table._id,
-                                    limitby=(0, 1)).first():
-            msg = DIV(S3CRUD.crud_string(resource.tablename,
-                                         "msg_no_match"),
-                      _class="empty")
-        else:
-            msg = DIV(S3CRUD.crud_string(resource.tablename,
-                                        "msg_list_empty"),
-                      _class="empty")
-        data = msg
-
+    if "datalist_dl_post" in request.args:
+        ajax = True
     else:
-        # Render the list
-        dl = datalist.html()
-        data = dl
+        ajax = False
 
-    output["disasters"] = data
+    def prep(r):
+        if ajax:
+            r.representation = "dl"
+        return True
+    s3.prep = prep
+
+    request.args = ["datalist"]
+    output = current.rest_controller("cms", "post",
+                                     list_ajaxurl = URL(f="index", args="datalist_dl_post"))
+
+    if ajax:
+        response.view = "plain.html"
+    else:
+        # Set Title & View after REST Controller, in order to override
+        response.title = current.deployment_settings.get_system_name()
+        view = path.join(request.folder, "private", "templates",
+                         "TLDRMP", "views", "index.html")
+        try:
+            # Pass view as file not str to work in compiled mode
+            response.view = open(view, "rb")
+        except IOError:
+            from gluon.http import HTTP
+            raise HTTP("404", "Unable to open Custom View: %s" % view)
+
+        # Latest 5 Disasters
+        resource = s3db.resource("event_event")
+        list_fields = ["name",
+                       "zero_hour",
+                       "closed",
+                       ]
+        datalist, numrows, ids = resource.datalist(fields=list_fields,
+                                                   start=None,
+                                                   limit=5,
+                                                   listid="event_datalist",
+                                                   layout=render_homepage_events)
+        if numrows == 0:
+            # Empty table or just no match?
+
+            table = resource.table
+            if "deleted" in table:
+                available_records = current.db(table.deleted != True)
+            else:
+                available_records = current.db(table._id > 0)
+            if available_records.select(table._id,
+                                        limitby=(0, 1)).first():
+                msg = DIV(S3CRUD.crud_string(resource.tablename,
+                                             "msg_no_match"),
+                          _class="empty")
+            else:
+                msg = DIV(S3CRUD.crud_string(resource.tablename,
+                                            "msg_list_empty"),
+                          _class="empty")
+            data = msg
+
+        else:
+            # Render the list
+            dl = datalist.html()
+            data = dl
+
+        output["disasters"] = data
 
     return output
+
+# -----------------------------------------------------------------------------
+def filter_formstyle(row_id, label, widget, comment):
+    """
+        Custom Formstyle for FilterForm
+
+        @param row_id: HTML id for the row
+        @param label: the label
+        @param widget: the form widget
+        @param comment: the comment
+    """
+
+    if label:
+        return DIV(TR(label),
+                   TR(widget))
+    else:
+        return widget
 
 # -----------------------------------------------------------------------------
 def location_represent(id, row=None):
@@ -158,9 +204,9 @@ def location_represent(id, row=None):
                                                 table.L3,
                                                 limitby=(0, 1)).first()
 
-    represent = "%s | %s | %s" % (row.L1.upper() if row.L1 else "",
-                                  row.L2.upper() if row.L2 else "",
-                                  row.L3.upper() if row.L3 else "",
+    represent = "%s | %s | %s" % (s3_unicode(row.L1).upper() if row.L1 else "",
+                                  s3_unicode(row.L2).upper() if row.L2 else "",
+                                  s3_unicode(row.L3).upper() if row.L3 else "",
                                   )
     return represent
 

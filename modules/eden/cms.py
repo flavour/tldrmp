@@ -196,6 +196,8 @@ class S3ContentModel(S3Model):
 
         # Resource Configuration
         configure(tablename,
+                  orderby=~table.created_on,
+                  list_orderby=~table.created_on,
                   super_entity="doc_entity",
                   onaccept = self.post_onaccept)
 
