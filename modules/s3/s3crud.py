@@ -833,7 +833,7 @@ class S3CRUD(S3Method):
         # Get table-specific parameters
         _config = self._config
         orderby = _config("orderby", None)
-        sortby = _config("sortby", [[1, 'asc']])
+        sortby = _config("sortby", [[1, "asc"]])
         linkto = _config("linkto", None)
         insertable = _config("insertable", True)
         listadd = _config("listadd", True)
@@ -1321,7 +1321,7 @@ class S3CRUD(S3Method):
         get_config = resource.get_config
 
         # Get table-specific parameters
-        sortby = get_config("sortby", [[1, 'asc']])
+        sortby = get_config("sortby", [[1, "asc"]])
         linkto = get_config("linkto", None)
 
         # List fields
@@ -1538,7 +1538,7 @@ class S3CRUD(S3Method):
         get_config = resource.get_config
 
         # Get table-specific parameters
-        sortby = get_config("sortby", [[1, 'asc']])
+        sortby = get_config("sortby", [[1, "asc"]])
         linkto = get_config("linkto", None)
         layout = get_config("list_layout", None)
 
@@ -1546,13 +1546,16 @@ class S3CRUD(S3Method):
         list_fields = resource.list_fields()
 
         # Default orderby
-        orderby = get_config("orderby", None)
+        orderby = get_config("list_orderby", None)
         if orderby is None:
-            for f in list_fields:
-                rfield = resource.resolve_selector(f)
-                if rfield.field:
-                    default_orderby = rfield.field
-                    break
+            if "created_on" in resource.fields:
+                default_orderby = "created_on desc"
+            else:
+                for f in list_fields:
+                    rfield = resource.resolve_selector(f)
+                    if rfield.field and rfield.colname != str(resource._id):
+                        default_orderby = rfield.field
+                        break
         else:
             default_orderby = None
 
@@ -1595,9 +1598,15 @@ class S3CRUD(S3Method):
             else:
                 initial_limit = pagelength
 
+            # We don't have client-side sorting yet to override
+            # default-orderby, so fall back unconditionally here:
+            if not orderby:
+                orderby = default_orderby
+
             datalist, numrows, ids = resource.datalist(fields=list_fields,
                                                        start=start,
                                                        limit=initial_limit,
+                                                       orderby=orderby,
                                                        listid="datalist",
                                                        layout=layout)
 
@@ -1698,7 +1707,7 @@ class S3CRUD(S3Method):
         # Get table-specific parameters
         _config = self._config
         orderby = _config("orderby", None)
-        sortby = _config("sortby", [[1, 'asc']])
+        sortby = _config("sortby", [[1, "asc"]])
         linkto = _config("linkto", None)
         insertable = _config("insertable", True)
         listadd = _config("listadd", True)
