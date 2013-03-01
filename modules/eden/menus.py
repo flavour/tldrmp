@@ -893,6 +893,7 @@ class S3OptionsMenu(object):
                         M("New", m="create"),
                         M("List All"),
                         M("Search Members", f="group_membership", m="search"),
+                        M("Import", f="group_membership", m="import"),
                     ),
                     M("Department Catalog", f="department",
                       check=manager_mode)(
@@ -993,6 +994,7 @@ class S3OptionsMenu(object):
                         M("New", m="create"),
                         M("List All"),
                         M("Search Members", f="group_membership", m="search"),
+                        M("Import", f="group_membership", m="import"),
                     ),
                     M("Department Catalog", f="department",
                       check=manager_mode)(
@@ -1845,19 +1847,20 @@ class S3OptionsMenu(object):
         menu = current.menu.options
         if menu and function != "index":
             branch = menu.branch()
-            path = branch.path()
-            if len(path) > 1:
-                for item in path[1:]:
-                    breadcrumbs(
-                        layout(item.label,
-                               c=item.get("controller"),
-                               f=item.get("function"),
-                               args=item.args,
-                               # Should we retain the request vars in case
-                               # the item has no vars? Or shall we merge them
-                               # in any case? Didn't see the use-case yet
-                               # anywhere...
-                               vars=item.vars))
+            if branch:
+                path = branch.path()
+                if len(path) > 1:
+                    for item in path[1:]:
+                        breadcrumbs(
+                            layout(item.label,
+                                   c=item.get("controller"),
+                                   f=item.get("function"),
+                                   args=item.args,
+                                   # Should we retain the request vars in case
+                                   # the item has no vars? Or shall we merge them
+                                   # in any case? Didn't see the use-case yet
+                                   # anywhere...
+                                   vars=item.vars))
         return breadcrumbs
 
 # END =========================================================================
