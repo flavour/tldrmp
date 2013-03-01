@@ -172,6 +172,11 @@ settings.modules = OrderedDict([
             restricted = True,
             module_type = None,
         )),
+    ("cms", Storage(
+            name_nice = T("Content Management"),
+            restricted = True,
+            module_type = None,
+        )),
     ("doc", Storage(
             name_nice = T("Documents"),
             #description = "A library of digital resources, such as photos, documents and reports",
