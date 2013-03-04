@@ -139,8 +139,11 @@ def homepage():
     if ajax:
         response.view = "plain.html"
     else:
+        form = output["form"]
         # Remove duplicate Submit button
-        output["form"][0][-1] = ""
+        form[0][-1] = ""
+        if form.errors:
+            s3.jquery_ready.append('''$("#myModal").modal("show")''')
         # Set Title & View after REST Controller, in order to override
         output["title"] = response.title = current.deployment_settings.get_system_name()
         view = path.join(request.folder, "private", "templates",
