@@ -77,6 +77,10 @@ class S3ContentModel(S3Model):
                                    default=False,
                                    represent = s3_yes_no_represent,
                                    label=T("Show Location?")),
+                             Field("richtext", "boolean",
+                                   default=True,
+                                   represent = s3_yes_no_represent,
+                                   label=T("Rich Text?")),
                              Field("replies", "boolean",
                                    default=False,
                                    represent = s3_yes_no_represent,
@@ -432,6 +436,7 @@ def cms_index(module, alt_function=None):
             from gluon.compileapp import build_environment, run_controller_in, run_view_in
             request = current.request
             environment = build_environment(request, response, current.session)
+            environment["settings"] = settings
             page = run_controller_in(request.controller, alt_function, environment)
             if isinstance(page, dict):
                 response._vars = page

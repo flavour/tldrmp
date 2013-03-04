@@ -457,14 +457,12 @@ class S3XML(S3Codec):
     # -------------------------------------------------------------------------
     @staticmethod
     def represent_user(user_id):
-        db = current.db
-        cache = current.cache
-        auth = current.auth
-        utable = auth.settings.table_user
-        user = None
-        if "email" in utable:
-            user = db(utable.id == user_id).select(utable.email,
-                                                   limitby=(0, 1)).first()
+        utable = current.auth.settings.table_user
+        #user = None
+        #if "email" in utable:
+        user = current.db(utable.id == user_id).select(utable.email,
+                                                       limitby=(0, 1)
+                                                       ).first()
         if user:
             return user.email
         return None
@@ -472,16 +470,14 @@ class S3XML(S3Codec):
     # -------------------------------------------------------------------------
     @staticmethod
     def represent_role(role_id):
-        db = current.db
-        cache = current.cache
-        auth = current.auth
-        gtable = auth.settings.table_group
-        role = None
-        if "role" in gtable:
-            role = db(gtable.id == role_id).select(
-                        gtable.role,
-                        limitby=(0, 1),
-                        cache=(cache.ram, S3XML.CACHE_TTL)).first()
+        gtable = current.auth.settings.table_group
+        #role = None
+        #if "role" in gtable:
+        role = current.db(gtable.id == role_id).select(gtable.role,
+                                                       limitby=(0, 1),
+                                                       cache=(current.cache.ram,
+                                                              S3XML.CACHE_TTL)
+                                                       ).first()
         if role:
             return role.role
         return None
@@ -948,7 +944,8 @@ class S3XML(S3Codec):
                  alias=None,
                  fields=[],
                  url=None,
-                 lazy=None):
+                 lazy=None,
+                 postprocess=None):
         """
             Creates a <resource> element from a record
 
@@ -959,6 +956,7 @@ class S3XML(S3Codec):
             @param fields: list of field names to include
             @param url: URL of the record
             @param lazy: lazy representation map
+            @param postprocess: post-process hook (xml_post_render)
         """
 
         SubElement = etree.SubElement
@@ -1121,6 +1119,9 @@ class S3XML(S3Codec):
         if url and not deleted:
             attrib[URL] = url
 
+        if postprocess:
+            postprocess(elem, record)
+
         return elem
 
     # Data import =============================================================
@@ -1195,9 +1196,9 @@ class S3XML(S3Codec):
     def record(cls, table, element,
                original=None,
                files=[],
-               preprocess=None,
                validate=None,
-               skip=[]):
+               skip=[],
+               postprocess=None):
         """
             Creates a record (Storage) from a <resource> element and validates
             it
@@ -1207,8 +1208,7 @@ class S3XML(S3Codec):
             @param element: the element
             @param original: the original record
             @param files: list of attached upload files
-            @param preprocess: pre-process hook (function to process elements
-                before they get parsed and validated)
+            @param postprocess: post-process hook (xml_post_parse)
             @param validate: validate hook (function to validate fields)
             @param skip: fields to skip
         """
@@ -1220,16 +1220,6 @@ class S3XML(S3Codec):
         auth = current.auth
         utable = auth.settings.table_user
         gtable = auth.settings.table_group
-
-        # Preprocess the element
-        prepare = None
-        if preprocess is not None:
-            try:
-                prepare = preprocess.get(str(table), None)
-            except:
-                prepare = preprocess
-        if prepare and callable(prepare):
-            element = prepare(table, element)
 
         # Extract the UUID
         UID = cls.UID
@@ -1423,6 +1413,8 @@ class S3XML(S3Codec):
                 record[f] = value
 
         if valid:
+            if postprocess:
+                postprocess(element, record)
             return record
         else:
             return None

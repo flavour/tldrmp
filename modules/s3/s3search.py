@@ -3163,7 +3163,7 @@ class S3TextFilter(S3FilterWidget):
         attr["_class"] = _class
         attr["_type"] = "text"
 
-        values = [v.strip("*") for v in values]
+        values = [v.strip("*") for v in values if v is not None]
         if values:
             attr["_value"] = " ".join(values)
 
@@ -3653,7 +3653,7 @@ class S3FilterForm(object):
                               _class=_class),
                         INPUT(_type="hidden",
                               _value=url))
-            
+
             rappend(formstyle(None, "", submit, ""))
 
         form = FORM(TABLE(TBODY(rows)), **self.attr)
