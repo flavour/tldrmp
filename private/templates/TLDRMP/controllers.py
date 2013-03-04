@@ -4,11 +4,13 @@ from os import path
 
 from gluon import current
 from gluon.html import *
+from gluon.validators import IS_NULL_OR
 from gluon.storage import Storage
 
 from s3.s3crud import S3CRUD
 from s3.s3search import S3DateFilter, S3OptionsFilter, S3TextFilter
 from s3.s3utils import s3_auth_user_represent_name, s3_avatar_represent, s3_unicode
+from s3.s3validators import IS_LOCATION
 from s3.s3widgets import S3LocationAutocompleteWidget
 
 # =============================================================================
@@ -66,7 +68,8 @@ def homepage():
     field.readable = field.writable = False
     field = table.location_id
     field.represent = location_represent
-    field.widget = S3LocationAutocompleteWidget()
+    field.requires = IS_NULL_OR(IS_LOCATION(level="L3"))
+    field.widget = S3LocationAutocompleteWidget(level="L3")
     table.created_by.represent = s3_auth_user_represent_name
     field = table.body
     field.label = T("Text")
