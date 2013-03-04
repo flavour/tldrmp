@@ -4,14 +4,11 @@ from os import path
 
 from gluon import current
 from gluon.html import *
-from gluon.validators import IS_NULL_OR
 from gluon.storage import Storage
 
 from s3.s3crud import S3CRUD
 from s3.s3search import S3DateFilter, S3OptionsFilter, S3TextFilter
-from s3.s3utils import s3_auth_user_represent_name, s3_avatar_represent, s3_unicode
-from s3.s3validators import IS_LOCATION
-from s3.s3widgets import S3LocationAutocompleteWidget
+from s3.s3utils import s3_avatar_represent
 
 # =============================================================================
 class index():
@@ -53,45 +50,9 @@ def homepage():
     response = current.response
     s3 = response.s3
 
-    table = s3db.cms_post
-
-    field = table.series_id
-    field.label = T("Type")
-    field.readable = field.writable = True
-    field.requires = field.requires.other
-    field = table.name
-    field.readable = field.writable = False
-    field = table.title
-    field.readable = field.writable = False
-    field = table.avatar
-    field.default = True
-    field.readable = field.writable = False
-    field = table.replies
-    field.default = False
-    field.readable = field.writable = False
-    field = table.location_id
-    field.represent = location_represent
-    field.requires = IS_NULL_OR(IS_LOCATION(level="L3"))
-    field.widget = S3LocationAutocompleteWidget(level="L3")
-    table.created_by.represent = s3_auth_user_represent_name
-    field = table.body
-    field.label = T("Text")
-    field.widget = None
-    table.comments.readable = table.comments.writable = False
-
-    # Return to List view after create
-    url_next = URL(f="index", args=None)
+    current.deployment_settings.ui.customize_cms_post()
 
     list_layout = render_homepage_posts
-
-    list_fields = ["series_id",
-                   "location_id",
-                   "created_on",
-                   "body",
-                   "created_by",
-                   "created_by$organisation_id",
-                   "document.file",
-                   ]
 
     filter_widgets = [S3TextFilter(["body"],
                                    label="",
@@ -110,9 +71,6 @@ def homepage():
                       ]
 
     s3db.configure("cms_post",
-                   create_next = url_next,
-                   update_next = url_next,
-                   list_fields = list_fields,
                    filter_formstyle = filter_formstyle,
                    filter_submit = (T("Filter Results"), "btn btn-primary"),
                    filter_widgets = filter_widgets,
@@ -132,12 +90,6 @@ def homepage():
         return True
     s3.prep = prep
 
-    crud_settings = s3.crud
-    crud_settings.formstyle = "bootstrap"
-    crud_settings.submit_button = T("Save changes")
-    # Done already within Bootstrap formstyle (& anyway fails with this formstyle)
-    #crud_settings.submit_style = "btn btn-primary"
-    
     request.args = ["datalist"]
     output = current.rest_controller("cms", "post",
                                      list_ajaxurl = URL(f="index", args="datalist_dl_post"))
@@ -247,27 +199,6 @@ def filter_formstyle(row_id, label, widget, comment):
         return widget
 
 # -----------------------------------------------------------------------------
-def location_represent(id, row=None):
-    """
-        Custom Representation of Locations
-    """
-
-    if not row:
-        if not id:
-            return current.messages["NONE"]
-        table = current.s3db.gis_location
-        row = current.db(table.id == id).select(table.L1,
-                                                table.L2,
-                                                table.L3,
-                                                limitby=(0, 1)).first()
-
-    represent = "%s | %s | %s" % (s3_unicode(row.L1).upper() if row.L1 else "",
-                                  s3_unicode(row.L2).upper() if row.L2 else "",
-                                  s3_unicode(row.L3).upper() if row.L3 else "",
-                                  )
-    return represent
-
-# -----------------------------------------------------------------------------
 def render_homepage_posts(rfields, record, **attr):
     """
         Custom dataList item renderer for CMS Posts on the Homepage
@@ -282,7 +213,8 @@ def render_homepage_posts(rfields, record, **attr):
     # Construct the item ID
     listid = "datalist"
     if pkey in record:
-        item_id = "%s-%s" % (listid, record[pkey])
+        record_id = record[pkey]
+        item_id = "%s-%s" % (listid, record_id)
     else:
         # template
         item_id = "%s-[id]" % listid
@@ -305,39 +237,53 @@ def render_homepage_posts(rfields, record, **attr):
     avatar = s3_avatar_represent(author_id,
                                  _class="media-object",
                                  _style="width:50px;padding:5px;padding-top:0px;")
+    db = current.db
     s3db = current.s3db
-    ptable = s3db.pr_person
     ltable = s3db.pr_person_user
+    ptable = db.pr_person
     query = (ltable.user_id == author_id) & \
             (ltable.pe_id == ptable.pe_id)
-    row = current.db(query).select(ptable.id,
-                                   limitby=(0, 1)
-                                   ).first()
+    row = db(query).select(ptable.id,
+                           limitby=(0, 1)
+                           ).first()
     if row:
-        avatar_url = URL(c="hrm", f="person", args=[row.id])
+        person_url = URL(c="hrm", f="person", args=[row.id])
     else:
-        avatar_url = "#"
+        person_url = "#"
+    author = A(author,
+               _href=person_url,
+               )
     avatar = A(avatar,
-               _href=avatar_url,
+               _href=person_url,
                _class="pull-left",
                )
-    # @ToDo: Check Permissions
-    edit_bar = DIV(I(" ",
-                     _class="icon icon-edit",
-                     ),
-                   I(" ",
-                     _class="icon icon-remove-sign",
-                     ),
+    permit = current.auth.s3_has_permission
+    table = db.cms_post
+    if permit("update", table, record_id=record_id):
+        edit_btn = A(I(" ", _class="icon icon-edit"),
+                     _href=URL(c="cms", f="post", args=[record_id, "update"]),
+                     )
+    else:
+        edit_btn = ""
+    if permit("delete", table, record_id=record_id):
+        delete_btn = A(I(" ", _class="icon icon-remove-sign"),
+                       _href=URL(c="cms", f="post", args=[record_id, "delete"]),
+                       )
+    else:
+        delete_btn = ""
+    edit_bar = DIV(edit_btn,
+                   delete_btn,
                    _class="edit-bar fright",
                    )
-    #document = record["doc_document.file"]
-    #if document:
-    doc_url = URL(c="default", f="download",
-                  #args=[document]
-                  )
-    doc_link = A(I(_class="icon icon-paper-clip fright"),
-                 _href=doc_url)
-                 
+    document = raw["doc_document.file"]
+    if document:
+        doc_url = URL(c="default", f="download",
+                      args=[document]
+                      )
+        doc_link = A(I(_class="icon icon-paper-clip fright"),
+                     _href=doc_url)
+    else:
+        doc_link = ""
 
     if series == "Alert":
         item_class = "%s disaster" % item_class
@@ -361,7 +307,8 @@ def render_homepage_posts(rfields, record, **attr):
                    ),
                DIV(avatar,
                    DIV(DIV(body,
-                           DIV("%s - " % author,
+                           DIV(author,
+                               " - ",
                                A(organisation,
                                  _href=org_url,
                                  _class="card-organisation",

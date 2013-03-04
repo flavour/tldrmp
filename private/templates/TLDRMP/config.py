@@ -1,10 +1,15 @@
 # -*- coding: utf-8 -*-
 
-from gluon import current
+from gluon import current, URL
 from gluon.storage import Storage
+from gluon.validators import IS_NULL_OR
+
 from gluon.contrib.simplejson.ordered_dict import OrderedDict
-settings = current.deployment_settings
-T = current.T
+
+from s3.s3forms import S3SQLCustomForm, S3SQLInlineComponent
+from s3.s3utils import s3_auth_user_represent_name, s3_unicode
+from s3.s3validators import IS_LOCATION
+from s3.s3widgets import S3LocationAutocompleteWidget
 
 settings = current.deployment_settings
 T = current.T
@@ -103,6 +108,104 @@ settings.hrm.use_credentials = False
 settings.hrm.use_skills = False
 # Uncomment to disable the use of HR Teams
 settings.hrm.use_teams = False
+
+# -----------------------------------------------------------------------------
+def location_represent(id, row=None):
+    """
+        Custom Representation of Locations
+    """
+
+    if not row:
+        if not id:
+            return current.messages["NONE"]
+        table = current.s3db.gis_location
+        row = current.db(table.id == id).select(table.L1,
+                                                table.L2,
+                                                table.L3,
+                                                limitby=(0, 1)).first()
+
+    represent = "%s | %s | %s" % (s3_unicode(row.L1).upper() if row.L1 else "",
+                                  s3_unicode(row.L2).upper() if row.L2 else "",
+                                  s3_unicode(row.L3).upper() if row.L3 else "",
+                                  )
+    return represent
+
+# -----------------------------------------------------------------------------
+def customize_cms_post(**attr):
+    """
+        Customize cms_post controller
+    """
+
+    s3db = current.s3db
+    table = s3db.cms_post
+
+    field = table.series_id
+    field.label = T("Type")
+    field.readable = field.writable = True
+    #field.requires = field.requires.other
+    #field = table.name
+    #field.readable = field.writable = False
+    #field = table.title
+    #field.readable = field.writable = False
+    field = table.avatar
+    field.default = True
+    #field.readable = field.writable = False
+    field = table.replies
+    field.default = False
+    #field.readable = field.writable = False
+    field = table.location_id
+    field.represent = location_represent
+    field.requires = IS_NULL_OR(IS_LOCATION(level="L3"))
+    field.widget = S3LocationAutocompleteWidget(level="L3")
+    table.created_by.represent = s3_auth_user_represent_name
+    field = table.body
+    field.label = T("Text")
+    field.widget = None
+    #table.comments.readable = table.comments.writable = False
+
+    crud_form = S3SQLCustomForm(
+        "series_id",
+        "body",
+        "location_id",
+        S3SQLInlineComponent(
+            "document",
+            name = "file",
+            label = T("Files"),
+            fields = ["file",
+                      #"comments",
+                      ],
+        ),
+    )
+
+    # Return to List view after create/update/delete
+    url_next = URL(c="default", f="index", args=None)
+
+    list_fields = ["series_id",
+                   "location_id",
+                   "created_on",
+                   "body",
+                   "created_by",
+                   "created_by$organisation_id",
+                   "document.file",
+                   ]
+
+    s3db.configure("cms_post",
+                   create_next = url_next,
+                   delete_next = url_next,
+                   update_next = url_next,
+                   crud_form = crud_form,
+                   list_fields = list_fields,
+                   )
+
+    crud_settings = current.response.s3.crud
+    crud_settings.formstyle = "bootstrap"
+    crud_settings.submit_button = T("Save changes")
+    # Done already within Bootstrap formstyle (& anyway fails with this formstyle)
+    #crud_settings.submit_style = "btn btn-primary"
+
+    return attr
+
+settings.ui.customize_cms_post = customize_cms_post
 
 # =============================================================================
 # Template Modules
