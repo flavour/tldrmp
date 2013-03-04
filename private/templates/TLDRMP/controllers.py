@@ -9,6 +9,7 @@ from gluon.storage import Storage
 from s3.s3crud import S3CRUD
 from s3.s3search import S3DateFilter, S3OptionsFilter, S3TextFilter
 from s3.s3utils import s3_auth_user_represent_name, s3_avatar_represent, s3_unicode
+from s3.s3widgets import S3LocationAutocompleteWidget
 
 # =============================================================================
 class index():
@@ -49,6 +50,10 @@ def homepage():
 
     table = s3db.cms_post
 
+    field = table.series_id
+    field.label = T("Type")
+    field.readable = field.writable = True
+    field.requires = field.requires.other
     field = table.name
     field.readable = field.writable = False
     field = table.title
@@ -59,8 +64,14 @@ def homepage():
     field = table.replies
     field.default = False
     field.readable = field.writable = False
-    table.location_id.represent = location_represent
+    field = table.location_id
+    field.represent = location_represent
+    field.widget = S3LocationAutocompleteWidget()
     table.created_by.represent = s3_auth_user_represent_name
+    field = table.body
+    field.label = T("Text")
+    field.widget = None
+    table.comments.readable = table.comments.writable = False
 
     # Return to List view after create
     url_next = URL(f="index", args=None)
@@ -115,6 +126,12 @@ def homepage():
         return True
     s3.prep = prep
 
+    crud_settings = s3.crud
+    crud_settings.formstyle = "bootstrap"
+    crud_settings.submit_button = T("Save changes")
+    # Done already within Bootstrap formstyle (& anyway fails with this formstyle)
+    #crud_settings.submit_style = "btn btn-primary"
+    
     request.args = ["datalist"]
     output = current.rest_controller("cms", "post",
                                      list_ajaxurl = URL(f="index", args="datalist_dl_post"))
@@ -122,8 +139,10 @@ def homepage():
     if ajax:
         response.view = "plain.html"
     else:
+        # Remove duplicate Submit button
+        output["form"][0][-1] = ""
         # Set Title & View after REST Controller, in order to override
-        response.title = current.deployment_settings.get_system_name()
+        output["title"] = response.title = current.deployment_settings.get_system_name()
         view = path.join(request.folder, "private", "templates",
                          "TLDRMP", "views", "index.html")
         try:
