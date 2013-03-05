@@ -20,6 +20,11 @@ form {
     border-top: 0;
 }
 
+/* Over-ride Bootstrap */
+#map_wrapper img {
+    max-width: none;
+}
+
 /* Over-ride widgets */
 /*
 div#dl-container {
