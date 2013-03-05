@@ -119,10 +119,13 @@ def homepage():
                        "zero_hour",
                        "closed",
                        ]
+        orderby = resource.get_config("list_orderby",
+                                      ~resource.table.created_on)
         datalist, numrows, ids = resource.datalist(fields=list_fields,
                                                    start=None,
                                                    limit=5,
                                                    listid="event_datalist",
+                                                   orderby=orderby,
                                                    layout=render_homepage_events)
         if numrows == 0:
             # Empty table or just no match?
