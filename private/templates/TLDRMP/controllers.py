@@ -81,7 +81,7 @@ def homepage():
                    list_layout = list_layout,
                    )
 
-    s3.dl_pagelength = 5
+    s3.dl_pagelength = 6  # 5 forces an AJAX call
 
     if "datalist_dl_post" in request.args:
         ajax = True

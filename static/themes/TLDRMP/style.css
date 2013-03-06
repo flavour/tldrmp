@@ -33,6 +33,10 @@ div#dl-container {
 div.dl {
     border-bottom: 0;
 }
+div.dl-item {
+    border-top: 0;
+    clear: none;
+}
 #datalist-header {
     display: none;
 }
