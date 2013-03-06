@@ -58,6 +58,10 @@ def homepage():
                                    label="",
                                    _class="filter-search",
                                    _placeholder=T("Search").upper()),
+                      S3OptionsFilter("series_id",
+                                      label=T("Filter by Type"),
+                                      represent="%(name)s",
+                                      cols=3),
                       S3OptionsFilter("location_id",
                                       label=T("Filter by Location"),
                                       represent="%(name)s",
@@ -142,7 +146,7 @@ def homepage():
                           _class="empty")
             else:
                 msg = DIV(S3CRUD.crud_string(resource.tablename,
-                                            "msg_list_empty"),
+                                             "msg_list_empty"),
                           _class="empty")
             data = msg
 
