@@ -15,7 +15,7 @@ settings = current.deployment_settings
 T = current.T
 
 """
-    Template settings for TLDRMP
+    Template settings for DRM Portal
 """
 # =============================================================================
 # System Settings
@@ -45,14 +45,14 @@ settings.auth.person_realm_human_resource_site_then_org = False
 
 # -----------------------------------------------------------------------------
 # Pre-Populate
-settings.base.prepopulate = ["TLDRMP"]
+settings.base.prepopulate = ["DRMP"]
 
 settings.base.system_name = T("Disaster Risk Management Portal")
 settings.base.system_name_short = T("DRMP")
 
 # -----------------------------------------------------------------------------
 # Theme (folder to use for views/layout.html)
-settings.base.theme = "TLDRMP"
+settings.base.theme = "DRMP"
 #settings.gis.map_height = 600
 #settings.gis.map_width = 854
 

@@ -38,7 +38,7 @@
  {{=s3base.s3_include_debug_css()}}
 {{else:}}
  {{# Built by /static/scripts/tools/build.sahana.py }}
- <link href="/{{=appname}}/static/themes/TLDRMP/eden.min.css" rel="stylesheet" type="text/css" />
+ <link href="/{{=appname}}/static/themes/{{=response.s3.theme}}/eden.min.css" rel="stylesheet" type="text/css" />
 {{pass}}
 {{for sheet in s3.external_stylesheets:}}
  <link href="{{=sheet}}" rel="stylesheet" type="text/css" media="screen" charset="utf-8" />
@@ -73,7 +73,7 @@
      <span class='icon-bar'></span>
      <span class='icon-bar'></span>
     </button>
-    <a class='brand' href='/{{=appname}}/default/index'>TLDRMP</a>
+    <a class='brand' href='/{{=appname}}/default/index'>DRMP</a>
     <div class='nav-collapse collapse'>
      <ul class='nav'>
       <li class=''>
@@ -110,8 +110,8 @@
  </div>
  {{s3.jquery_ready.append("$('a.first').pageslide()")}}
 {{pass}}
-{{if s3.debug:}}{{s3.scripts.append(URL(c="static", f="themes", args=["TLDRMP", "js", "jquery.pageslide.js"]))}}
-{{else:}}{{s3.scripts.append(URL(c="static", f="themes", args=["TLDRMP", "js", "jquery.pageslide.min.js"]))}}{{pass}}
+{{if s3.debug:}}{{s3.scripts.append(URL(c="static", f="themes", args=["DRMP", "js", "jquery.pageslide.js"]))}}
+{{else:}}{{s3.scripts.append(URL(c="static", f="themes", args=["DRMP", "js", "jquery.pageslide.min.js"]))}}{{pass}}
 {{include "bootstrap_js.html"}}
 {{include "scripts.html"}}
 </body>

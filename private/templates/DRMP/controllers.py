@@ -109,7 +109,7 @@ def homepage():
         # Set Title & View after REST Controller, in order to override
         output["title"] = response.title = current.deployment_settings.get_system_name()
         view = path.join(request.folder, "private", "templates",
-                         "TLDRMP", "views", "index.html")
+                         "DRMP", "views", "index.html")
         try:
             # Pass view as file not str to work in compiled mode
             response.view = open(view, "rb")
@@ -169,7 +169,7 @@ def login():
     request = current.request
 
     view = path.join(request.folder, "private", "templates",
-                     "TLDRMP", "views", "login.html")
+                     "DRMP", "views", "login.html")
     try:
         # Pass view as file not str to work in compiled mode
         response.view = open(view, "rb")
@@ -402,7 +402,7 @@ class secondary():
     def __call__(self):
 
         view = path.join(current.request.folder, "private", "templates",
-                         "TLDRMP", "views", "secondary.html")
+                         "DRMP", "views", "secondary.html")
         try:
             # Pass view as file not str to work in compiled mode
             current.response.view = open(view, "rb")
