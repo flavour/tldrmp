@@ -572,10 +572,12 @@ class S3SQLDefaultForm(S3SQLForm):
                 errors = []
                 table = self.table
                 for fieldname in form.errors:
-                    if fieldname in table and \
-                       isinstance(table[fieldname].requires, IS_LIST_OF):
-                        errors.append("%s: %s" % (fieldname,
-                                                  form.errors[fieldname]))
+                    if fieldname in table:
+                        if isinstance(table[fieldname].requires, IS_LIST_OF):
+                            errors.append("%s: %s" % (fieldname,
+                                                      form.errors[fieldname]))
+                        else:
+                            errors.append(str(form.errors[fieldname]))
                 if errors:
                     error = "\n".join(errors)
 
@@ -2576,13 +2578,16 @@ class S3SQLInlineComponentCheckbox(S3SQLInlineComponent):
                     lookupkey = filter.get("lookupkey", None)
                     if not lookupkey:
                         raise
-                    id = resource._rows[0][lookupkey]
-                    _resource = s3db.resource(lookuptable, id=id)
+                    if resource._rows:
+                        id = resource._rows[0][lookupkey]
+                        _resource = s3db.resource(lookuptable, id=id)
+                    else:
+                        id = None
                 else:
                     # e.g. Project Themes filtered by Sector
-                    _resource = resource
-                    if _resource._ids:
-                        id = _resource._ids[0]
+                    if resource._ids:
+                        id = resource._ids[0]
+                        _resource = resource
                     else:
                         id = None
                 if id:
