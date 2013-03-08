@@ -17,7 +17,7 @@ S3.search.saveCurrentSearch = function(event) {
                .insertAfter(btn);
 
 	// Disable the button to prevent clicking while loading
-	btn.attr('disabled', 'disabled');
+	btn.prop('disabled', true);
 
 	// POST the s3json to the saved_search REST controller
 	$.ajax({
@@ -224,7 +224,7 @@ $(document).ready(function() {
         Hide all the expanding/collapsing letter widgets that don't have
         any options selected
     */
-    $('.search_select_letter_label,.s3-grouped-checkboxes-widget-label').live('click', function(event) {
+    $(document).on('click', '.search_select_letter_label,.s3-grouped-checkboxes-widget-label', function(event) {
         /*
             Listen for click events on the expanding/collapsing letter widgets
         */
@@ -251,7 +251,7 @@ $(document).ready(function() {
     					  .keypress(S3.search.ancelEnterPress);
 
     // Select Item for Autocomplete
-    $('.search_autocomplete_result_list li span').live('click', function() {
+    $(document).on('click', '.search_autocomplete_result_list li span', function() {
         var selResultLI = $(this).parent();
         var selResultList = selResultLI.parent();
         var selSearchForm = selResultList.parent();
@@ -356,7 +356,9 @@ S3.search.filterURL = function(url) {
     });
 
     // Options widgets
-    $('.options-filter:visible').each(function() {
+    $('.options-filter:visible,' +
+      '.options-filter.multiselect-filter-widget.active,' +
+      '.options-filter.multiselect-filter-bootstrap.active').each(function() {
         var id = $(this).attr('id');
         var url_var = $('#' + id + '-data').val();
         var operator = $("input:radio[name='" + id + "_filter']:checked").val();
@@ -367,14 +369,31 @@ S3.search.filterURL = function(url) {
         } else if (operator == 'all' && url_var.match(anyof)) {
             url_var = url_var.replace(anyof,'__contains');
         }
-        var value = '';
-        $("input[name='" + id + "']:checked").each(function() {
-            if (value === '') {
-                value = S3.search.quoteValue($(this).val());
-            } else {
-                value = value + ',' + S3.search.quoteValue($(this).val());
+        if (this.tagName.toLowerCase() == 'select') {
+            // Standard SELECT
+            value = '';
+            values = $(this).val();
+            if (values) {
+                for (i=0; i<values.length; i++) {
+                    v = S3.search.quoteValue(values[i]);
+                    if (value === '') {
+                        value = v;
+                    } else {
+                        value = value + ',' + v;
+                    }
+                }
             }
-        });
+        } else {
+            // Checkboxes widget
+            var value = '';
+            $("input[name='" + id + "']:checked").each(function() {
+                if (value === '') {
+                    value = S3.search.quoteValue($(this).val());
+                } else {
+                    value = value + ',' + S3.search.quoteValue($(this).val());
+                }
+            });
+        }
         if (value !== '') {
             queries.push(url_var + '=' + value);
         }
@@ -465,6 +484,30 @@ $(document).ready(function() {
 //         window.location.href = url;
 //     });
 
+    // Activate drop-down checklist widgets:
+    
+    // Mark active, otherwise submit can't find them
+    $('.multiselect-filter-widget:visible').addClass('active');
+    // Namespace bridge to not interfere with ui.multiselect
+    //$.widget.bridge("ech_multiselect", $.ech.multiselect);
+    $('.multiselect-filter-widget').each(function() {
+        if ($(this).find('option').length > 5) {
+            $(this).multiselect({
+                selectedList: 5
+            }).multiselectfilter();
+        } else {
+            $(this).multiselect({
+                selectedList: 5
+            });
+        }
+    });
+
+    if (typeof($.fn.multiselect_bs) != 'undefined') {
+        // Alternative with bootstrap-multiselect (note the hack for the fn-name):
+        $('.multiselect-filter-bootstrap:visible').addClass('active');
+        $('.multiselect-filter-bootstrap').multiselect_bs();
+    }
+    
     $('.filter-submit').click(function() {
         try {
             // Update Map results URL
