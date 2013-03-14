@@ -7,7 +7,7 @@ from gluon.html import *
 from gluon.storage import Storage
 
 from s3.s3crud import S3CRUD
-from s3.s3search import S3DateFilter, S3LocationFilter, S3OptionsFilter, S3TextFilter
+from s3.s3filter import S3DateFilter, S3LocationFilter, S3OptionsFilter, S3TextFilter
 from s3.s3utils import s3_avatar_represent
 
 # =============================================================================
@@ -29,6 +29,22 @@ class datalist():
 # =============================================================================
 class datalist_dl_post():
     """ AJAX URL for CMS Posts (for Homepage) """
+
+    def __call__(self):
+
+        return homepage()
+
+# =============================================================================
+class datalist_dl_filter():
+    """ AJAX URL for CMS Posts Filter Form (for Homepage) """
+
+    def __call__(self):
+
+        return homepage()
+
+# =============================================================================
+class validate():
+    """ Alternate URL for homepage """
 
     def __call__(self):
 
@@ -89,23 +105,38 @@ def homepage():
     s3.dl_pagelength = 6  # 5 forces an AJAX call
 
     if "datalist_dl_post" in request.args:
-        ajax = True
+        # DataList pagination or Ajax-deletion request
+        request.args = ["datalist"]
+        ajax = "list"
+    elif "datalist_dl_filter" in request.args:
+        # FilterForm options update request
+        request.args = ["filter"]
+        ajax = "filter"
     else:
-        ajax = False
+        # Default
+        request.args = ["datalist"]
+        ajax = None
 
     def prep(r):
-        if ajax:
+        if ajax == "list":
             r.representation = "dl"
+        elif ajax == "filter":
+            r.representation = "json"
         return True
     s3.prep = prep
 
-    request.args = ["datalist"]
     output = current.rest_controller("cms", "post",
-                                     list_ajaxurl = URL(f="index", args="datalist_dl_post"))
+                                     list_ajaxurl = URL(f="index",
+                                                        args="datalist_dl_post"),
+                                     filter_ajax_url = URL(f="index",
+                                                           args="datalist_dl_filter",
+                                                           vars={}))
 
-    if ajax:
-        response.view = "plain.html"
-    else:
+    if ajax == "list":
+        # Don't override view if this is an Ajax-deletion request
+        if not "delete" in request.get_vars:
+            response.view = "plain.html"
+    elif not ajax:
         form = output["form"]
         # Remove duplicate Submit button
         form[0][-1] = ""
@@ -275,16 +306,20 @@ def render_homepage_posts(rfields, record, **attr):
         edit_btn = A(I(" ", _class="icon icon-edit"),
                      _href=URL(c="cms", f="post",
                                args=[record_id, "update.popup"],
-                               vars={"refresh": listid}),
+                               vars={"refresh": listid,
+                                     "record": record_id}),
                      _class="s3_modal",
                      _title=current.response.s3.crud_strings.cms_post.title_update,
                      )
     else:
         edit_btn = ""
     if permit("delete", table, record_id=record_id):
+        #delete_btn = A(I(" ", _class="icon icon-remove-sign"),
+                       #_href=URL(c="cms", f="post", args=[record_id, "delete"]),
+                       #)
         delete_btn = A(I(" ", _class="icon icon-remove-sign"),
-                       _href=URL(c="cms", f="post", args=[record_id, "delete"]),
-                       )
+                       _class="dl-item-delete",
+                      )
     else:
         delete_btn = ""
     edit_bar = DIV(edit_btn,
@@ -381,7 +416,8 @@ def render_homepage_events(rfields, record, **attr):
         edit_bar = DIV(A(I(" ",
                            _class="icon icon-edit",
                            ),
-                         _href=URL(c="event", f="event", args=[record_id]),
+                         _href=URL(c="event", f="event",
+                                   args=[record_id, "profile"]),
                          ),
                        A(I(" ",
                            _class="icon icon-remove-sign",

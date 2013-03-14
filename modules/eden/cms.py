@@ -45,6 +45,7 @@ class S3ContentModel(S3Model):
 
     names = ["cms_series",
              "cms_post",
+             "cms_post_id",
              "cms_post_module",
              "cms_tag",
              "cms_tag_post",
@@ -216,6 +217,10 @@ class S3ContentModel(S3Model):
                                        key="tag_id",
                                        actuate="hide"))
 
+        add_component("event_post",
+                      cms_post=Storage(alias="event",
+                                       joinby="post_id"))
+
         # ---------------------------------------------------------------------
         # Modules <> Posts link table
         #
@@ -341,7 +346,9 @@ class S3ContentModel(S3Model):
         # ---------------------------------------------------------------------
         # Pass names back to global scope (s3.*)
         #
-        return Storage()
+        return Storage(
+                cms_post_id = post_id,
+            )
 
     # -------------------------------------------------------------------------
     @staticmethod
