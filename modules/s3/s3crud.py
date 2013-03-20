@@ -1157,7 +1157,7 @@ class S3CRUD(S3Method):
                 target = "datalist"
                 output = self._datalist(r, **attr)
             else:
-                filter_ajax = False
+                filter_ajax = True
                 target = "datatable"
                 output = self._datatable(r, **attr)
 
@@ -1199,9 +1199,11 @@ class S3CRUD(S3Method):
                                            _class="filter-form",
                                            _id="%s-filter-form" % target)
                 fresource = current.s3db.resource(resource.tablename)
+                alias = resource.alias if r.component else None
                 output["list_filter_form"] = filter_form.html(fresource,
                                                               r.get_vars,
-                                                              target=target)
+                                                              target=target,
+                                                              alias=alias)
             else:
                 # Render as empty string to avoid the exception in the view
                 output["list_filter_form"] = ""
@@ -1483,7 +1485,7 @@ class S3CRUD(S3Method):
                 dtargs["dt_displayLength"] = display_length
                 datatable = dt.html(totalrows,
                                     displayrows,
-                                    id="list",
+                                    id="datatable",
                                     **dtargs)
 
             # View + data
@@ -1491,13 +1493,6 @@ class S3CRUD(S3Method):
             output["items"] = datatable
 
         elif representation == "aadata":
-
-            # Get the master query for SSPag
-            # @todo: don't use session to store filters; also causes resource
-            # filters to be discarded
-            if session.s3.filter is not None:
-                resource.build_query(filter=s3.filter,
-                                     vars=session.s3.filter)
 
             # Apply datatable filters
             searchq, orderby, left = resource.datatable_filter(list_fields, get_vars)
