@@ -204,7 +204,12 @@ class S3ContentModel(S3Model):
                   orderby=~table.created_on,
                   list_orderby=~table.created_on,
                   super_entity="doc_entity",
-                  onaccept = self.post_onaccept)
+                  onaccept = self.post_onaccept,
+                  context = {"event": "event.id",
+                             "location": "location_id",
+                             "organisation": "created_by$organisation_id",
+                             },
+                  )
 
         # Components
         add_component("cms_comment", cms_post="post_id")
