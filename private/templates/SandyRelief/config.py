@@ -29,8 +29,6 @@ settings.L10n.display_toolbar = False
 settings.L10n.utc_offset = "UTC -0500"
 # Uncomment these to use US-style dates in English (localisations can still convert to local format)
 settings.L10n.date_format = T("%m-%d-%Y")
-settings.L10n.time_format = T("%H:%M:%S")
-settings.L10n.datetime_format = T("%m-%d-%Y %H:%M")
 # Start week on Sunday
 settings.L10n.firstDOW = 0
 # Number formats (defaults to ISO 31-0)
@@ -478,12 +476,12 @@ settings.modules = OrderedDict([
             restricted = True,
             module_type = 5,
         )),
-    #("survey", Storage(
-    #        name_nice = T("Surveys"),
-    #        #description = "Create, enter, and manage surveys.",
-    #        restricted = True,
-    #        module_type = 5,
-    #    )),
+    ("survey", Storage(
+            name_nice = T("Surveys"),
+            #description = "Create, enter, and manage surveys.",
+            restricted = True,
+            module_type = 5,
+        )),
     #("cr", Storage(
     #        name_nice = T("Shelters"),
     #        #description = "Tracks the location, capacity and breakdown of victims in Shelters",

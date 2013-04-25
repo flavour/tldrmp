@@ -125,7 +125,6 @@ settings = current.deployment_settings
 # Uncomment these to use US-style dates in English (localisations can still convert to local format)
 #settings.L10n.date_format = T("%m-%d-%Y")
 #settings.L10n.time_format = T("%H:%M:%S")
-#settings.L10n.datetime_format = T("%m-%d-%Y %H:%M")
 # Start week on Sunday
 #settings.L10n.firstDOW = 0
 # Number formats (defaults to ISO 31-0)
@@ -208,6 +207,8 @@ settings.L10n.decimal_separator = "."
 #settings.gis.poi_resources = ["cr_shelter", "hms_hospital", "org_office"]
 # Uncomment to hide the ScaleLine control
 #settings.gis.scaleline = False
+# Uncomment to modify the Simplify Tolerance
+#settings.gis.simplify_tolerance = 0.001
 # Uncomment to hide the Zoom control
 #settings.gis.zoomcontrol = False
 

@@ -216,7 +216,7 @@ def dojs(dogis = False, warnings = True):
 
     # Vulnerability
     print "Compressing Vulnerability"
-    sourceDirectoryVulnerability = ".."
+    sourceDirectoryVulnerability = "../.."
     configFilenameVulnerability = "sahana.js.vulnerability.cfg"
     outputFilenameVulnerability = "s3.vulnerability.min.js"
     mergedVulnerability = mergejs.run(sourceDirectoryVulnerability,
@@ -225,10 +225,10 @@ def dojs(dogis = False, warnings = True):
     minimizedVulnerability = minimize(mergedVulnerability)
     open(outputFilenameVulnerability, "w").write(minimizedVulnerability)
     try:
-        os.remove("../S3/%s" % outputFilenameVulnerability)
+        os.remove("../../themes/Vulnerability/js/%s" % outputFilenameVulnerability)
     except:
         pass
-    shutil.move(outputFilenameVulnerability, "../S3")
+    shutil.move(outputFilenameVulnerability, "../../themes/Vulnerability/js")
     print "Compressing Vulnerability GIS"
     sourceDirectoryVulnerability = "../../themes/Vulnerability/js"
     configFilenameVulnerability = "sahana.js.vulnerability_gis.cfg"
@@ -522,7 +522,7 @@ def main(argv):
         dojs(warnings=closure_warnings)
         docss()
     else:
-        if parameter1 == "CSS":
+        if parameter1 in ("CSS", "css"):
             docss()
         else:
             dojs(parameter2, warnings=closure_warnings)

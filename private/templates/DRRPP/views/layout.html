@@ -14,8 +14,21 @@
 {{else:}}
  body{direction:ltr;}
 {{pass}}
+{{if request.get_vars.background:}}
+ html>body {background:{{=request.get_vars.background}};}
+{{pass}}
+{{if request.get_vars.header == "hide":}}
+div#header-banner {
+    background: #568AAB;
+    height: 20px;
+    border-bottom: 1px solid white;
+}
+div#header-top-menu {
+    margin-top: 0;
+}
+{{pass}}
 </style>
- <link href="/{{=appname}}/static/themes/{{=response.s3.theme}}/font.css" rel="stylesheet" type="text/css" />
+ <link href="/{{=appname}}/static/themes/DRRPP/font.css" rel="stylesheet" type="text/css" />
 {{if s3.debug:}}
  {{=s3base.s3_include_debug_css()}}
 {{else:}}
@@ -49,15 +62,17 @@
 <body>
 <div id='header' class='container_12'>
  <div id='header-banner' class='grid_12 alpha omega'>
-  <div id='header-top-menu' class='grid_3 prefix_9 omega'>
+  <div id='header-top-menu' class='grid_5 prefix_7 omega'>
    {{if auth.user is None:}}
    <a class='header-top-menu-btn' href='{{=URL(r=request, c="default", f="index", args="login")}}'>Login</a>
    <a class='header-top-menu-btn' href='{{=URL(r=request, c="default", f="index", args="register")}}'>Register</a>
    {{else:}}
    {{system_roles = auth.get_system_roles()}}
    {{if auth.s3_has_role(system_roles.ADMIN) or auth.s3_has_role(system_roles.ORG_ADMIN):}}
-    <a class='header-top-menu-btn' href='{{=URL(r=request, c="admin")}}'>Admin</a>
+    <a class='header-top-menu-btn' href='{{=URL(r=request, c="default", f="index", args="admin")}}'>Admin</a>
    {{pass}}
+   <a class='header-top-menu-btn' href='{{=URL(r=request, c="default", f="user", args="profile")}}'>Profile</a>
+   <a class='header-top-menu-btn' href='{{=URL(r=request, c="default", f="user", args="change_password")}}'>Change Password</a>
    <a class='header-top-menu-btn' href='{{=URL(r=request, c="default", f="user", args="logout")}}'>Logout</a>
    {{pass}}
    <a class='header-top-menu-btn' href='{{=URL(r=request, c="default", f="index", args="contact")}}'>Contact</a>
@@ -73,7 +88,7 @@
     <ul class='sub-menu'>
      <li><a href='{{=URL(r=request, c="project", f="project", args="create")}}'>Add Project</a></li>
      <li><a href='{{=URL(r=request, c="project", f="framework", args="create")}}'>Add Policies &amp; Strategies</a></li>
-     <li><a href='{{=URL(r=request, c="project", f="project", args="import")}}'>Add Project Offline</a></li>
+     <li><a href='/{{=appname}}/static/themes/DRRPP/DRR_Project_Portal_New_Project_Form.doc'>Add Project Offline</a></li>
     </ul>
    </li>
    <li><a href='{{=URL(r=request, c="project", f="project", args="search")}}'>Project List</a></li>
@@ -99,10 +114,12 @@
 {{if response.flash:}}<div class='confirmation'>{{=response.flash}}</div>{{pass}}
 {{include}}
 </div>
+{{if request.get_vars.footer != "hide":}}
 <div id='footer' class='container_12'>
  {{include "../private/templates/%s/views/footer.html" % response.s3.theme}}
  {{if s3.debug:}}{{=s3.toolbar()}}{{pass}}
 </div>
+{{pass}}
 {{s3.jquery_ready.append(
 """
 $('#nav').children('li').mouseover(function(){

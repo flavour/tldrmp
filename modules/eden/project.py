@@ -154,7 +154,8 @@ class S3ProjectModel(S3Model):
             msg_list_empty = T("No Statuses currently registered"))
 
         # Reusable Field
-        represent = S3Represent(lookup=tablename)
+        represent = S3Represent(lookup=tablename,
+                               ) #none = T("Unknown"))
         status_id = S3ReusableField("status_id", table,
                                     label = T("Status"),
                                     sortby = "name",
@@ -261,6 +262,12 @@ class S3ProjectModel(S3Model):
             msg_list_empty = T("No Projects currently registered"))
 
         # Search Method
+        status_search_widget = S3SearchOptionsWidget(
+                name = "project_search_status",
+                label = T("Status"),
+                field = "status_id",
+                cols = 4,
+                )
         simple = [
             S3SearchSimpleWidget(name = "project_search_text_advanced",
                                  label = T("Description"),
@@ -270,12 +277,7 @@ class S3ProjectModel(S3Model):
                                           "description",
                                           ]
                                  ),
-            S3SearchOptionsWidget(
-                name = "project_search_status",
-                label = T("Status"),
-                field = "status_id",
-                cols = 4,
-                )
+            status_search_widget,
             ]
         advanced = list(simple)
         append = advanced.append
@@ -400,10 +402,10 @@ class S3ProjectModel(S3Model):
             #append("drr.hfa")
         append((T("Themes"), "theme.name"))
         if multi_orgs:
-            table.virtualfields.append(S3ProjectOrganisationFundingVirtualFields())
+            table.total_organisation_amount = Field.Lazy(self.project_total_organisation_amount)
             append((T("Total Funding Amount"), "total_organisation_amount"))
         if multi_budgets:
-            table.virtualfields.append(S3ProjectBudgetVirtualFields())
+            table.total_annual_budget = Field.Lazy(self.project_total_annual_budget)
             append((T("Total Annual Budget"), "total_annual_budget"))
         append("start_date")
         append("end_date")
@@ -422,7 +424,7 @@ class S3ProjectModel(S3Model):
                   search_method=project_search,
                   list_fields=list_fields,
                   report_options=Storage(
-                    search=advanced,
+                    search = [status_search_widget] + advanced,
                     rows=report_fields,
                     cols=report_fields,
                     fact=report_fact_fields,
@@ -609,6 +611,42 @@ class S3ProjectModel(S3Model):
 
     # -------------------------------------------------------------------------
     @staticmethod
+    def project_total_organisation_amount(row):
+        """ Total of project_organisation amounts for project"""
+
+        if "project_project" in row:
+            project_id = row["project_project.id"]
+        elif "id" in row:
+            project_id = row["id"]
+        else:
+            return 0
+
+        table = current.s3db.project_organisation
+        query = (table.deleted != True) & \
+                (table.project_id == project_id)
+        sum_field = table.amount.sum()
+        return current.db(query).select(sum_field).first()[sum_field]
+        
+    # -------------------------------------------------------------------------
+    @staticmethod
+    def project_total_annual_budget(row):
+        """ Total of all annual budgets for project"""
+
+        if "project_project" in row:
+            project_id = row["project_project.id"]
+        elif "id" in row:
+            project_id = row["id"]
+        else:
+            return 0
+
+        table = current.s3db.project_annual_budget
+        query = (table.deleted != True) & \
+                (table.project_id == project_id)
+        sum_field = table.amount.sum()
+        return current.db(query).select(sum_field).first()[sum_field]
+
+    # -------------------------------------------------------------------------
+    @staticmethod
     def project_project_onaccept(form):
         """
             After DB I/O tasks for Project records
@@ -777,7 +815,7 @@ class S3ProjectModel(S3Model):
             if len(_countries) == 1:
                 country = _countries[0]
                 if country in countries:
-                    budget = project.project_project.total_annual_budget
+                    budget = project.project_project.total_annual_budget()
                     theme = project.project_theme_project.theme_id
                     percentage = project.project_theme_project.percentage
                     countries[country][theme] += budget * percentage
@@ -788,7 +826,7 @@ class S3ProjectModel(S3Model):
                     for theme in themes:
                         countries[country][theme.id] = 0
                     # Add value for this record
-                    budget = project.project_project.total_annual_budget
+                    budget = project.project_project.total_annual_budget()
                     theme = project.project_theme_project.theme_id
                     percentage = project.project_theme_project.percentage
                     countries[country][theme] += budget * percentage
@@ -1286,7 +1324,8 @@ class S3ProjectActivityModel(S3Model):
         if item.tablename != "project_activity":
             return
         data = item.data
-        if "project_id" in data and "name" in data:
+        if "project_id" in data and \
+           "name" in data:
             # Match activity by project_id and name
             project_id = data.project_id
             name = data.name
@@ -2026,7 +2065,9 @@ class S3ProjectHazardModel(S3Model):
         #
         tablename = "project_hazard"
         table = define_table(tablename,
-                             Field("name", length=128, notnull=True, unique=True),
+                             Field("name", length=128, notnull=True, unique=True,
+                                   label=T("Name"),
+                                   ),
                              s3_comments(),
                              *s3_meta_fields())
 
@@ -2060,6 +2101,10 @@ class S3ProjectHazardModel(S3Model):
                                     ondelete = "CASCADE",
                                     )
 
+        # Field settings for project_project.hazard field in friendly_string_from_field_query function
+        table.id.represent = represent
+        table.id.label = T("Hazard")
+
         # ---------------------------------------------------------------------
         # Projects <> Hazards Link Table
         #
@@ -2084,12 +2129,40 @@ class S3ProjectHazardModel(S3Model):
             msg_record_created = T("Hazard added to Project"),
             msg_record_modified = T("Hazard updated"),
             msg_record_deleted = T("Hazard removed from Project"),
-            msg_list_empty = T("No Hazards found for this Project")
-        )
+            msg_list_empty = T("No Hazards found for this Project"))
+
+        self.configure(tablename,
+                       deduplicate=self.project_hazard_project_deduplicate,
+                       )
 
         # Pass names back to global scope (s3.*)
         return dict(
             )
+
+    # -------------------------------------------------------------------------
+    @staticmethod
+    def project_hazard_project_deduplicate(item):
+        """ Import item de-duplication """
+
+        if item.tablename != "project_hazard_project":
+            return
+
+        data = item.data
+        if "project_id" in data and \
+           "hazard_id" in data:
+            project_id = data.project_id
+            hazard_id = data.hazard_id
+            table = item.table
+            query = (table.project_id == project_id) & \
+                    (table.hazard_id == hazard_id)
+            duplicate = current.db(query).select(table.id,
+                                                 limitby=(0, 1)).first()
+
+            if duplicate:
+                item.id = duplicate.id
+                item.method = item.METHOD.UPDATE
+
+        return
 
 # =============================================================================
 class S3ProjectSectorModel(S3Model):
@@ -2542,7 +2615,6 @@ class S3ProjectLocationModel(S3Model):
         data = item.data
         if "project_id" in data and \
            "location_id" in data:
-            # Match location by project_id and location_id
             project_id = data.project_id
             location_id = data.location_id
             table = item.table
@@ -2763,7 +2835,6 @@ class S3ProjectOrganisationModel(S3Model):
         data = item.data
         if "project_id" in data and \
            "organisation_id" in data:
-            # Match project by org_id and project_id
             table = item.table
             project_id = data.project_id
             organisation_id = data.organisation_id
@@ -2805,7 +2876,9 @@ class S3ProjectThemeModel(S3Model):
         #
         tablename = "project_theme"
         table = define_table(tablename,
-                             Field("name", length=128, notnull=True, unique=True),
+                             Field("name", length=128, notnull=True, unique=True,
+                                   label = T("Name"),
+                                   ),
                              s3_comments(),
                              *s3_meta_fields())
 
@@ -2837,6 +2910,10 @@ class S3ProjectThemeModel(S3Model):
                                                           sort=True)),
                                    represent = represent,
                                    ondelete = "CASCADE")
+
+        # Field settings for project_project.theme field in friendly_string_from_field_query function
+        table.id.represent = represent
+        table.id.label = T("Theme")
 
         # Components
         add_component("project_theme_project", project_theme="theme_id")
@@ -2922,6 +2999,7 @@ class S3ProjectThemeModel(S3Model):
         )
 
         configure(tablename,
+                  deduplicate=self.project_theme_project_deduplicate,
                   onaccept = self.project_theme_project_onaccept
                   )
 
@@ -3004,6 +3082,31 @@ class S3ProjectThemeModel(S3Model):
                                  theme_id = theme_id,
                                  percentage = percentages[theme_id])
 
+    # -------------------------------------------------------------------------
+    @staticmethod
+    def project_theme_project_deduplicate(item):
+        """ Import item de-duplication """
+
+        if item.tablename != "project_theme_project":
+            return
+
+        data = item.data
+        if "project_id" in data and \
+           "theme_id" in data:
+            project_id = data.project_id
+            theme_id = data.theme_id
+            table = item.table
+            query = (table.project_id == project_id) & \
+                    (table.theme_id == theme_id)
+            duplicate = current.db(query).select(table.id,
+                                                 limitby=(0, 1)).first()
+
+            if duplicate:
+                item.id = duplicate.id
+                item.method = item.METHOD.UPDATE
+
+        return
+
 # =============================================================================
 class S3ProjectDRRModel(S3Model):
     """
@@ -3046,15 +3149,16 @@ class S3ProjectDRRModel(S3Model):
     def hfa_opts_represent(opt):
         """ Option representation """
 
-        NONE = current.messages["NONE"]
-
-        opts = opt
+        if not opt:
+            return current.messages["NONE"]
         if isinstance(opt, int):
             opts = [opt]
         elif not isinstance(opt, (list, tuple)):
-            return NONE
-        elif opt[0] is None:
-            return NONE
+            return current.messages["NONE"]
+        else:
+            opts = opt
+        if opts[0] is None:
+            return current.messages["NONE"]
         vals = ["HFA %s" % o for o in opts]
         return ", ".join(vals)
 
@@ -3098,12 +3202,11 @@ class S3ProjectDRRPPModel(S3Model):
                         ),
                      Field("parent_project",
                            represent = lambda v: v or NONE,
-                           label = T("Parent Project"),
-                           comment = DIV(_class="tooltip",
-                                         _title="%s|%s" % (T("Parent Project"),
-                                                           T("The parent project or programme which this project is implemented under"))), 
-                           
-                     ),
+                           label =  T("Name of a programme or another project which this project is implemented as part of"),
+                           #comment = DIV(_class="tooltip",
+                           #              _title="%s|%s" % (T("Parent Project"),
+                           #                                T("The parent project or programme which this project is implemented under"))),
+                           ), 
                      Field("duration", "integer",
                            represent = lambda v: v or NONE,
                            label = T("Duration (months)")),
@@ -3192,6 +3295,7 @@ class S3ProjectDRRPPModel(S3Model):
                      # @ToDo: Becase RMS uses the human_resource_id field, the focal person from RMS won't be visible in DRRPP
                      Field("focal_person",
                            represent = lambda v: v or NONE,
+                           requires = IS_NOT_EMPTY(),
                            label = T("Focal Person")),
                      self.org_organisation_id(label = T("Organization")),
                      Field("email",
@@ -4673,34 +4777,6 @@ def task_notify(form):
                  vars.description or "")
             current.msg.send_by_pe_id(pe_id, subject, message)
     return
-
-# =============================================================================
-class S3ProjectOrganisationFundingVirtualFields:
-    """ Virtual fields for the project_project table """
-
-    def total_organisation_amount(self):
-        """ Total of project_organisation amounts for project"""
-
-        table = current.s3db.project_organisation
-        query = (table.deleted != True) & \
-                (table.project_id == self.project_project.id)
-        sum_field = table.amount.sum()
-        return current.db(query).select(sum_field).first()[sum_field]
-
-# =============================================================================
-class S3ProjectBudgetVirtualFields:
-    """
-        Virtual fields for the project_project table when multi_budgets=True
-    """
-
-    def total_annual_budget(self):
-        """ Total of all annual budgets for project"""
-
-        table = current.s3db.project_annual_budget
-        query = (table.deleted != True) & \
-                (table.project_id == self.project_project.id)
-        sum_field = table.amount.sum()
-        return current.db(query).select(sum_field).first()[sum_field]
 
 # =============================================================================
 class S3ProjectBeneficiaryVirtualFields:

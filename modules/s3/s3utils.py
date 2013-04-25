@@ -29,6 +29,7 @@
     OTHER DEALINGS IN THE SOFTWARE.
 """
 
+import collections
 import datetime
 import os
 import re
@@ -125,7 +126,8 @@ def s3_mark_required(fields,
                      mark_required=[],
                      label_html=(lambda field_label:
                                  DIV("%s:" % field_label,
-                                     SPAN(" *", _class="req")))):
+                                     SPAN(" *", _class="req"))),
+                     map_names=None):
     """
         Add asterisk to field label if a field is required
 
@@ -142,18 +144,22 @@ def s3_mark_required(fields,
     # Do we have any required fields?
     _required = False
     for field in fields:
+        if map_names:
+            fname, flabel = map_names[field.name]
+        else:
+            fname, flabel = field.name, field.label
         if field.writable:
             validators = field.requires
             if isinstance(validators, IS_EMPTY_OR) and field.name not in mark_required:
                 # Allow notnull fields to be marked as not required
                 # if we populate them onvalidation
-                labels[field.name] = "%s:" % field.label
+                labels[fname] = "%s:" % flabel
                 continue
             else:
                 required = field.required or field.notnull or \
                             field.name in mark_required
             if not validators and not required:
-                labels[field.name] = "%s:" % field.label
+                labels[fname] = "%s:" % flabel
                 continue
             if not required:
                 if not isinstance(validators, (list, tuple)):
@@ -179,11 +185,11 @@ def s3_mark_required(fields,
                             break
             if required:
                 _required = True
-                labels[field.name] = label_html(field.label)
+                labels[fname] = label_html(flabel)
             else:
-                labels[field.name] = "%s:" % field.label
+                labels[fname] = "%s:" % flabel
         else:
-            labels[field.name] = "%s:" % field.label
+            labels[fname] = "%s:" % flabel
 
     if labels:
         return (labels, _required)
@@ -1034,6 +1040,17 @@ def s3_unicode(s, encoding="utf-8"):
         else:
             s = " ".join([s3_unicode(arg, encoding) for arg in s])
     return s
+
+# =============================================================================
+def s3_flatlist(nested):
+    """ Iterator to flatten mixed iterables of arbitrary depth """
+    for item in nested:
+        if isinstance(item, collections.Iterable) and \
+           not isinstance(item, basestring):
+            for sub in s3_flatlist(item):
+                yield sub
+        else:
+            yield item
 
 # =============================================================================
 def search_vars_represent(search_vars):

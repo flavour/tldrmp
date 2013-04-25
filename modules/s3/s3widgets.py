@@ -46,6 +46,7 @@ __all__ = ["S3HiddenWidget",
            "S3SiteAutocompleteWidget",
            "S3SiteAddressAutocompleteWidget",
            "S3LocationSelectorWidget",
+           "S3LocationSelectorWidget2",
            "S3LocationDropdownWidget",
            #"S3CheckboxesWidget",
            "S3MultiSelectWidget",
@@ -240,7 +241,7 @@ class S3DateTimeWidget(FormWidget):
 
         default = dict(_type = "text", _class=self._class, value = value)
         attr = StringWidget._attributes(field, default, **attributes)
-        
+
         if "_id" not in attr:
             attr["_id"] = str(field).replace(".", "_")
 
@@ -330,7 +331,7 @@ class S3DateTimeWidget(FormWidget):
             default = rounded.strftime(dtformat)
         else:
             default = ""
-            
+
         # Add timezone offset to limits
         if offset:
             earliest += timedelta(seconds=offset)
@@ -407,7 +408,7 @@ if($('#%(selector)s_clear').length == 0){
                  date_format=date_format,
                  time_format=time_format,
                  separator=separator,
-                 
+
                  weeknumber = getopt("weeknumber", False),
                  month_selector = getopt("month_selector", False),
                  year_selector = getopt("year_selector", True),
@@ -416,7 +417,7 @@ if($('#%(selector)s_clear').length == 0){
                  firstDOW=firstDOW,
                  year_range=year_range,
                  minute_step=minute_step,
-                 
+
                  limit=limit,
                  earliest=earliest.strftime(ISO),
                  latest=latest.strftime(ISO),
@@ -428,7 +429,7 @@ if($('#%(selector)s_clear').length == 0){
         )
 
         return
-        
+
 # =============================================================================
 class S3BooleanWidget(BooleanWidget):
     """
@@ -1794,10 +1795,12 @@ class S3LocationSelectorWidget(FormWidget):
     """
 
     def __init__(self,
+                 catalog_layers=False,
                  hide_address=False,
                  site_type=None,
                  polygon=False):
 
+        self.catalog_layers = catalog_layers
         self.hide_address = hide_address
         self.site_type = site_type
         self.polygon = polygon
@@ -2035,7 +2038,7 @@ S3.gis.tab="%s"''' % s3.gis.tab
                                                  # Same as a single zoom on a cluster
                                                  zoom = zoom + 2,
                                                  features = features,
-                                                 #catalogue_layers = True,
+                                                 catalogue_layers = self.catalog_layers,
                                                  add_feature = True,
                                                  add_feature_active = not polygon,
                                                  add_polygon = polygon,
@@ -2081,7 +2084,7 @@ S3.gis.tab="%s"''' % s3.gis.tab
                                              add_feature_active = not polygon,
                                              add_polygon = polygon,
                                              add_polygon_active = polygon,
-                                             #catalogue_layers = True,
+                                             catalogue_layers = self.catalog_layers,
                                              toolbar = True,
                                              collapsed = True,
                                              search = True,
@@ -2520,7 +2523,7 @@ i18n.gis_country_required="%s"''' % (country_snippet,
                                       _id="gis_location_wkt",
                                       _name="gis_location_wkt",
                                       _disabled="disabled")
-                if wkt:
+                if not wkt:
                     hidden = "hide"
             else:
                 wkt_widget = TEXTAREA(_class="wkt-input",
@@ -2558,6 +2561,166 @@ i18n.gis_country_required="%s"''' % (country_snippet,
                        divider,
                        TR(map_popup, TD(), _class="box_middle"),
                        requires=requires
+                       )
+
+# =============================================================================
+class S3LocationSelectorWidget2(FormWidget):
+    """
+        Renders a gis_location Foreign Key to allow inline display/editing of linked fields
+
+        Differences to the original LocationSelectorWidget:
+        * Allows selection of either an Lx or creation of a new Point within the lowest Lx level
+        * Uses dropdowns not autocompletes
+        * Selection of lower Lx levels only happens when higher-level have been done
+
+        Limitations:
+        * Currently assumes use within just 1 country
+        * Doesn't allow creation of new Lx Locations
+        * Doesn't allow selection of existing Locations
+        * Doesn't support manual entry of LatLons
+        * Doesn't support creation of Polygons
+
+        May evolve into a replacement in-time if missing features get migrated here.
+
+        Implementation Notes:
+        * Should support formstyles (Bootstrap most urgent)
+        * Should support multiple on a page
+        * Performance: Create JSON for the hierarchy, along with bboxes for the map zoom
+                       - load progressively rather than all as 1 big download
+        h = {id : {'n' : name,
+                   'l' : level,
+                   'f' : parent
+                   }}
+    """
+
+    def __init__(self,
+                 levels=["L1", "L2", "L3"],
+                 ):
+
+        self.levels = levels
+
+    def __call__(self, field, value, **attributes):
+
+        levels = self.levels
+
+        T = current.T
+        db = current.db
+        s3db = current.s3db
+        settings = current.deployment_settings
+        s3 = current.response.s3
+        formstyle = s3.crud.formstyle
+        appname = current.request.application
+        throbber_img = "/%s/static/img/ajax-loader.gif" % appname
+
+        countries = settings.get_gis_countries()
+        if len(countries) != 1:
+            # @ToDo: Lookup Labels dynamically when L0 changes
+            raise
+        # @ToDo: Support default L1/L2/L3
+
+        # Main Input
+        defaults = dict(_type = "text",
+                        value = (value != None and str(value)) or "")
+        attr = StringWidget._attributes(field, defaults, **attributes)
+        # Hide the real field
+        attr["_class"] = "hide"
+
+        # Lx Dropdowns
+        htable = s3db.gis_hierarchy
+        ttable = s3db.gis_location_tag
+        fields = [htable[level] for level in levels] + [htable.location_id]
+        query = (ttable.tag == "ISO2") & \
+                (ttable.value == countries[0]) & \
+                (ttable.location_id == htable.location_id)
+        labels = db(query).select(*fields).first()
+        country_id = labels.location_id
+        #del labels.location_id
+
+        Lx_rows = DIV()
+        hidden = False
+        fieldname = str(field).replace(".", "_")
+        for level in levels:
+            label = labels[level]
+            id = "%s_%s" % (fieldname, level)
+            widget = SELECT(T("Select %(location)s") % dict(location = label), _id=id)
+            comment = T("Select this %(location)s") % dict(location = label)
+            throbber = IMG(_src=throbber_img,
+                           _height=32, _width=32,
+                           _id="%s__throbber" % id,
+                           _class="throbber hide"
+                           )
+            if formstyle == "bootstrap":
+                # We would like to hide the whole original control-group & append rows, but that can't be done directly within a Widget
+                # - Elements moved via JS after page load
+                label = LABEL("%s:" % label, _class="control-label",
+                                             _for=id)
+                widget.add_class("input-xlarge")
+                comment = BUTTON(comment,
+                                 _class="btn btn-primary hide",
+                                 _id="%s__button" % id
+                                 )
+                _controls = DIV(widget, throbber, comment, _class="controls")
+                if hidden:
+                    _class = "control-group hide"
+                else:
+                    _class = "control-group"
+                row = DIV(label, _controls, _class=_class, _id="%s__row" % id)
+            elif callable(formstyle):
+                # @ToDo
+                row = formstyle(label, widget, comment, hidden=hidden)
+            else:
+                raise
+            Lx_rows.append(row)
+            hidden = True
+
+        # @ToDo
+        #if value:
+
+        table = s3db.gis_location
+        query = (table.deleted == False) & \
+                (table.level == "L1") & \
+                (table.parent == country_id)
+        locations = db(query).select(table.id,
+                                     table.name,
+                                     table.level,
+                                     table.parent)
+        location_dict = {}
+        for location in locations:
+            location_dict[int(location.id)] = dict(n=location.name,
+                                                   l=int(location.level[1]),
+                                                   f=int(location.parent))
+
+        js_global = []
+        append = js_global.append
+
+        # i18n
+        i18n = "\n".join((
+            "i18n.gis_requires_login='%s'" % T("Requires Login"),
+            ))
+        append(i18n)
+
+        script = '''\nh=%s\n''' % json.dumps(location_dict)
+        append(script)
+
+        script = '''\ns3_gis_locationselector2('%s',%s)\n''' % (fieldname, country_id)
+        append(script)
+
+        s3.js_global.append("".join(js_global))
+
+        #if s3.debug:
+        script = "s3.locationselector.widget2.js"
+        #else:
+        #    script = "s3.locationselector.widget.min2.js"
+
+        script_path = "/%s/static/scripts/S3/%s" % (appname, script)
+        if script_path not in s3.scripts:
+            s3.scripts.append(script_path)
+
+        # The overall layout of the components
+        return TAG[""](DIV(INPUT(**attr)), # Real input, hidden
+                       Lx_rows,
+                       #_map,
+                       requires=field.requires
                        )
 
 # =============================================================================
@@ -3924,7 +4087,6 @@ def s3_richtext_widget(field, value):
                     value=value,
                     requires=field.requires)
 
-
 # =============================================================================
 def s3_grouped_checkboxes_widget(field,
                                  value,
@@ -4137,7 +4299,7 @@ def s3_checkboxes_widget(field,
 
     options = [(k, v) for k, v in options if k != ""]
     options = sorted(options, key=lambda option: s3_unicode(option[1]))
-    
+
     input_index = start_at_id
     rows = []
     rappend = rows.append
@@ -4376,4 +4538,286 @@ class S3KeyValueWidget(ListWidget):
             for kv in value:
                 rep += ["%s: %s" % (kv["key"], kv["value"])]
         return ", ".join(rep)
+
+#==============================================================================
+class S3GroupedOptionsWidget(FormWidget):
+    """ Widget with grouped checkboxes for S3OptionsFilter """
+
+    def __init__(self,
+                 options=None,
+                 multiple=True,
+                 size=None,
+                 cols=None,
+                 help_field=None,
+                 none=None):
+        """
+            Constructor
+
+            @param options: the options for the SELECT, as list of tuples
+                            [(value, label)], or as dict {value: label},
+                            or None to auto-detect the options from the
+                            Field when called
+            @param multiple: multiple options can be selected
+            @param size: maximum number of options in merged letter-groups,
+                         None to not group options by initial letter
+            @param cols: number of columns for the options table
+            @param help_field: field in the referenced table to retrieve
+                               a tooltip text from (for foreign keys only)
+            @param none: True to render "None" as normal option
+        """
+
+        self.options = options
+        self.multiple = multiple
+        self.size = size
+        self.cols = cols or 3
+        self.help_field = help_field
+        self.none = none
+
+    # -------------------------------------------------------------------------
+    def __call__(self, field, value, **attributes):
+        """
+            Render this widget
+
+            @param field: the Field
+            @param value: the currently selected value(s)
+            @param attributes: HTML attributes for the widget
+        """
+
+        fieldname = field.name
+
+        attr = Storage(attributes)
+        if "_id" in attr:
+            _id = attr.pop("_id")
+        else:
+            _id = "%s-options" % fieldname
+        attr["_id"] = _id
+
+        options = self._options(field, value)
+        if "empty" in options:
+            widget = DIV(SPAN(options["empty"],
+                              _class="no-options-available"),
+                         INPUT(_type="hidden",
+                               _name=fieldname,
+                               _value=None),
+                         **attr)
+        else:
+            groups = options["groups"]
+            if self.multiple:
+                attr["_multiple"] = "multiple"
+            widget = SELECT(**attr)
+            append = widget.append
+            render_group = self._render_group
+            for group in groups:
+                options = render_group(group)
+                for option in options:
+                    append(option)
+
+            script = '''$('#%s').groupedopts({columns: %s})''' % (_id, self.cols)
+            current.response.s3.jquery_ready.append(script)
+        
+        return widget
+
+    # -------------------------------------------------------------------------
+    def _render_group(self, group):
+        """
+            Helper method to render an options group
+
+            @param group: the group as dict {label:label, items:[items]}
+        """
+
+        items = group["items"]
+        if items:
+            label = group["label"]
+            render_item = self._render_item
+            options = [render_item(i) for i in items]
+            if label:
+                return [OPTGROUP(options, _label=label)]
+            else:
+                return options
+        else:
+            return None
+
+    # -------------------------------------------------------------------------
+    def _render_item(self, item):
+        """
+            Helper method to render one option
+
+            @param item: the item as tuple (key, label, value, tooltip),
+                         value=True indicates that the item is selected
+        """
+
+        key, label, value, tooltip = item
+        attr = {"_value": key}
+        if value:
+            attr["_selected"] = "selected"
+        if tooltip:
+            attr["_title"] = tooltip
+        return OPTION(label, **attr)
+
+    # -------------------------------------------------------------------------
+    def _options(self, field, value):
+        """
+            Find, group and sort the options
+
+            @param field: the Field
+            @param value: the currently selected value(s)
+        """
+
+        options = self.options
+        help_field = self.help_field
+
+        # Get the current values as list of unicode
+        if not isinstance(value, (list, tuple)):
+            values = [value]
+        else:
+            values = value
+        values = [s3_unicode(v) for v in values]
+
+        # Get the options as sorted list of tuples (key, value)
+        if options is None:
+            requires = field.requires
+            if not isinstance(requires, (list, tuple)):
+                requires = [requires]
+            if hasattr(requires[0], "options"):
+                options = requires[0].options()
+            else:
+                options = []
+        elif isinstance(options, dict):
+            options = options.items()
+        none = self.none
+        exclude = ("",) if none is not None else ("", None)
+        options = [(s3_unicode(k) if k is not None else none, s3_unicode(v))
+                   for k, v in options if k not in exclude]
+
+        # No options available?
+        if not options:
+            return {"empty": T("no options available")}
+
+        # Get the tooltips as dict {key: tooltip}
+        helptext = {}
+        if help_field:
+            if callable(help_field):
+                help_field = help_field(options)
+            if isinstance(help_field, dict):
+                for key in help_field.keys():
+                    helptext[s3_unicode(key)] = help_field[key]
+            else:
+                ktablename, pkey, multiple = s3_get_foreign_key(field)
+                if ktablename is not None:
+                    ktable = current.s3db[ktablename]
+                    if hasattr(ktable, help_field):
+                        keys = [k for k, v in options if k.isdigit()]
+                        query = ktable[pkey].belongs(keys)
+                        rows = current.db(query).select(ktable[pkey],
+                                                        ktable[help_field])
+                        for row in rows:
+                            helptext[unicode(row[pkey])] = row[help_field]
+
+        # Get all letters and their options
+        letter_options = {}
+        for key, label in options:
+            letter = label
+            if letter:
+                letter = s3_unicode(label).upper()[0]
+                if letter in letter_options:
+                    letter_options[letter].append((key, label))
+                else:
+                    letter_options[letter] = [(key, label)]
+        all_letters = letter_options.keys()
+
+        # Sort letters
+        import locale
+        all_letters.sort(locale.strcoll)
+        first_letter = min(u"A", all_letters[0])
+        last_letter = max(u"Z", all_letters[-1])
+
+        size = self.size
+        cols = self.cols
+
+        close_group = self._close_group
+
+        if size and len(options) > size and len(letter_options) > 1:
+            # Multiple groups
+
+            groups = []
+            group = {"letters": [first_letter], "items": []}
+
+            for letter in all_letters:
+
+                group_items = group["items"]
+                current_size = len(group_items)
+                items = letter_options[letter]
+
+                if current_size and current_size + len(items) > size:
+
+                    # Close + append this group
+                    close_group(group, values, helptext)
+                    groups.append(group)
+
+                    # Start a new group
+                    group = {"letters": [letter], "items": items}
+
+                else:
+
+                    # Append current letter
+                    if letter != group["letters"][-1]:
+                        group["letters"].append(letter)
+
+                    # Append items
+                    group["items"].extend(items)
+
+            if len(group["items"]):
+                if group["letters"][-1] != last_letter:
+                    group["letters"].append(last_letter)
+                close_group(group, values, helptext)
+                groups.append(group)
+
+        else:
+            # Only one group
+            group = {"letters": None, "items": options}
+            close_group(group, values, helptext)
+            groups = [group]
+
+        return {"groups": groups}
+
+    # -------------------------------------------------------------------------
+    @staticmethod
+    def _close_group(group, values, helptext):
+        """
+            Helper method to finalize an options group, render its label
+            and sort the options
+
+            @param group: the group as dict {letters: [], items: []}
+            @param values: the currently selected values as list
+            @param helptext: dict of {key: helptext} for the options
+        """
+
+        # Construct the group label
+        group_letters = group["letters"]
+        if group_letters:
+            if len(group_letters) > 1:
+                group["label"] = "%s - %s" % (group_letters[0],
+                                              group_letters[-1])
+            else:
+                group["label"] = group_letters[0]
+        else:
+            group["label"] = None
+        del group["letters"]
+
+        # Sort the group items
+        group_items = sorted(group["items"], key=lambda i: i[1].upper()[0])
+
+        # Add tooltips
+        items = []
+        for key, label in group_items:
+            if helptext and key in helptext:
+                tooltip = helptext[key]
+            else:
+                tooltip = None
+            item = (key, label, key in values, tooltip)
+            items.append(item)
+
+        group["items"] = items
+        return
+
 # END =========================================================================

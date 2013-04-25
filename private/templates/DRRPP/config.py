@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from gluon import current, TAG, DIV, H3, SQLFORM
+from gluon import current, A, DIV, H3, TAG, SQLFORM, IS_NOT_EMPTY, IS_EMAIL
 from gluon.storage import Storage
 from gluon.contrib.simplejson.ordered_dict import OrderedDict
 from s3 import s3forms, s3search
@@ -63,7 +63,6 @@ settings.L10n.decimal_separator = "."
 settings.L10n.thousands_separator = ","
 # Unsortable 'pretty' date format
 #settings.L10n.date_format = T("%d-%b-%Y")
-#settings.L10n.datetime_format = T("%d-%b-%Y %H:%M:%S")
 
 # =============================================================================
 # Finance Deployment Settings
@@ -140,12 +139,15 @@ def formstyle_row(id, label, widget, comment, hidden=False):
         hide = "hide"
     else:
         hide = ""
-    row = DIV(DIV(comment, label,
-                  _id=id + "1",
+    row = DIV(DIV(label,
+                  _id=id + "_label",
                   _class="w2p_fl %s" % hide),
               DIV(widget,
-                  _id=id,
+                  _id=id + "_widget",
                   _class="w2p_fw %s" % hide),
+              DIV(comment,
+                  _id=id + "_comment",
+                  _class="w2p_fc %s" % hide),
               _class = "w2p_r",
               )
     return row
@@ -176,6 +178,7 @@ def customize_project_project(**attr):
         Customize project_project controller
     """
 
+    db = current.db
     s3db = current.s3db
     s3 = current.response.s3
     tablename = "project_project"
@@ -211,6 +214,12 @@ def customize_project_project(**attr):
     table.file.widget = lambda field, value, download_url: \
         SQLFORM.widgets.upload.widget(field, value, download_url, _size = 15)
     table.comments.widget = SQLFORM.widgets.string.widget
+    # If not logged in, contact person is required
+    if not current.auth.is_logged_in():
+        table = s3db.project_drrpp
+        table.focal_person.required = True
+        table.email.required = True
+        table.email.requires = IS_EMAIL()
 
     # Custom dataTable
     s3["dataTable_sDom"] = 'ripl<"dataTable_table"t>p'
@@ -220,6 +229,10 @@ def customize_project_project(**attr):
     
     # Remove rheader
     attr["rheader"] = None
+    
+    # Only show 10 Project by default to improve load time
+    attr["dt_lengthMenu"] = [[ 10, 50, -1], [ 10, 50, current.T("All")]]
+    s3.dataTable_iDisplayLength = 10
     
     # Custom PreP
     standard_prep = s3.prep
@@ -240,6 +253,33 @@ def customize_project_project(**attr):
 
             # JS to show/hide Cook Island fileds
             s3.scripts.append("/%s/static/themes/DRRPP/js/drrpp.js" % current.request.application)
+            
+            if r.method == "read":
+                table_pl = s3db.project_location
+                table_l = s3db.gis_location
+                countries = [ r.name for r in 
+                              db( ( table_pl.project_id == r.record.id ) &
+                                  ( table_pl.location_id == table_l.id ) 
+                               ).select(table_l.name)
+                             ]
+                if not ("Cook Islands" in countries and len(countries) == 1):
+                    s3db.project_drrpp.L1.readable = False
+                    s3db.project_drrpp.pifacc.readable = False
+                    s3db.project_drrpp.jnap.readable = False
+
+            if r.method == "review":
+                list_fields = ["id",
+                               "created_on",
+                               "modified_on",
+                               "name",
+                               "start_date",
+                               (T("Countries"), "location.location_id"),
+                               (T("Hazards"), "hazard.name"),
+                               (T("Lead Organization"), "organisation_id"),
+                               (T("Donors"), "donor.organisation_id"),
+                               ]
+                s3db.configure(tablename,
+                               list_fields = list_fields)
 
         elif r.representation == "xls":
             # All readable Fields should be exported
@@ -291,8 +331,9 @@ def customize_project_project(**attr):
     # Custom Search Fields
     S3SearchSimpleWidget = s3search.S3SearchSimpleWidget
     S3SearchOptionsWidget = s3search.S3SearchOptionsWidget
+
     simple = [
-        S3SearchSimpleWidget(name = "project_search_text_advanced",
+        S3SearchSimpleWidget(name = "project_search_text_simple",
                              label = T("Search Projects"),
                              comment = T("Search for a Project by name, code, or description."),
                              field = ["name",
@@ -303,11 +344,11 @@ def customize_project_project(**attr):
                                       "theme.name",
                                       ]
                              ),
-        S3SearchOptionsWidget(name = "project_search_status",
+        S3SearchOptionsWidget(name = "project_search_status_simple",
                               label = T("Status"),
                               field = "status_id",
                               cols = 4,
-                              )
+                              ),
         ]
 
     project_hfa_opts = s3db.project_hfa_opts()
@@ -335,16 +376,32 @@ def customize_project_project(**attr):
         jnap_options[key] = "JNAP %s" % key
 
     advanced = [
+        S3SearchSimpleWidget(name = "project_search_text_advanced",
+                             label = T("Search Projects"),
+                             comment = T("Search for a Project by name, code, or description."),
+                             field = ["name",
+                                      "code",
+                                      "description",
+                                      "location.location_id",
+                                      "hazard.name",
+                                      "theme.name",
+                                      ]
+                             ),
+        S3SearchOptionsWidget(name = "project_search_status_advanced",
+                              label = T("Status"),
+                              field = "status_id",
+                              cols = 4,
+                              ),
         S3SearchOptionsWidget(name = "project_search_location",
                               label = T("Country"),
                               field = "location.location_id",
                               cols = 3
                               ),
-        S3SearchOptionsWidget(name = "project_search_L1",
-                              label = T("Cook Islands"),
-                              field = "drrpp.L1",
-                              cols = 3
-                              ),
+        #S3SearchOptionsWidget(name = "project_search_L1",
+        #                      label = T("Cook Islands"),
+        #                      field = "drrpp.L1",
+        #                      cols = 3
+        #                      ),
         S3SearchOptionsWidget(name = "project_search_hazard",
                               label = T("Hazard"),
                               field = "hazard.id",
@@ -406,10 +463,11 @@ def customize_project_project(**attr):
                              )
      ]
     search_method = s3search.S3Search(simple = simple,
-                                      advanced = simple + advanced)
+                                      advanced = advanced)
 
     # Custom Report Fields
-    report_fields = [(T("Countries"), "location.location_id"),
+    report_fields = ["name",
+                     (T("Countries"), "location.location_id"),
                      (T("Hazards"), "hazard.name"),
                      (T("Themes"), "theme.name"),
                      (T("HFA Priorities"), "drr.hfa"),
@@ -421,8 +479,8 @@ def customize_project_project(**attr):
     # Report Settings for charts
     if "chart" in current.request.vars:
         crud_strings[tablename].title_report  = T("Project Graph")
-        report_fact_fields = [("project.id", "count")]
-        report_fact_default = "project.id"
+        report_fact_fields = [("project.name", "count")]
+        report_fact_default = "project.name"
     else:
         crud_strings[tablename].title_report  = T("Project Matrix")
         report_fact_fields = [(field, "count") for field in report_fields]
@@ -716,13 +774,46 @@ def customize_pr_person(**attr):
         Customize pr_person controller
     """
 
+    s3db = current.s3db
     # Load normal model
-    table = current.s3db.pr_person
+    table = s3db.pr_person
 
     # Custom CRUD Strings
     current.response.s3.crud_strings.pr_person.title_display = T("My Page")
 
     attr["rheader"] = H3(T("Saved Searches"))
+
+    # Customize saved search
+    table = s3db.pr_saved_search
+    table.url.label = T("Display Search")
+
+    def url_represent(url):
+        return TAG[""](
+                A(T("List"),
+                    _href = url,
+                    _class = "action-btn"
+                    ),
+                A(T("Matrix"),
+                    _href = url.replace("search","report"),
+                    _class = "action-btn"
+                    ),
+                A(T("Chart"),
+                    _href = url.replace("search","report?chart=breakdown%3Arows"),
+                    _class = "action-btn"
+                    ),
+                A(T("Map"),
+                    _href = url.replace("project/search","location/map"),
+                    _class = "action-btn"
+                    )
+                )
+    table.url.represent = url_represent
+
+    s3db.configure("pr_saved_search",
+                   list_fields=["name",
+                                "url",
+                                ]
+                   )
+
     return attr
 
 settings.ui.customize_pr_person = customize_pr_person

@@ -124,6 +124,7 @@ S3.addModals = function() {
             // Bootstrap formstyle
             caller = $(this).parent().parent().prev().attr('id');
         }
+        caller = caller.replace(/__row_comment/, ''); // DRRPP formstyle
         caller = caller.replace(/__row/, '');
         // Avoid Duplicate callers
         var url_out = attr;
@@ -207,7 +208,11 @@ $(document).ready(function() {
                 return false;
             }
         });
-        $('input:text:visible:first').focus();
+
+        if (S3.FocusOnFirstField != false) {
+            // Focus On First Field
+            $('input:text:visible:first').focus();
+        };
     }
 
     // Accept comma as thousands separator

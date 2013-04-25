@@ -78,9 +78,6 @@ class S3EventModel(S3Model):
         db = current.db
         settings = current.deployment_settings
 
-        s3_datetime_format = settings.get_L10n_datetime_format()
-        s3_utc_represent = lambda dt: S3DateTime.datetime_represent(dt, utc=True)
-
         add_component = self.add_component
         configure = self.configure
         crud_strings = current.response.s3.crud_strings
@@ -106,14 +103,13 @@ class S3EventModel(S3Model):
                                                                    # Should!
                                    #                                T("Exercises mean all screens have a watermark & all notifications have a prefix."))),
                                    label=T("Exercise?")),
-                             Field("zero_hour", "datetime",
-                                   default = current.request.utcnow,
-                                   requires = IS_DATETIME(format=s3_datetime_format),
-                                   represent = s3_utc_represent,
-                                   comment = DIV(_class="tooltip",
-                                                 _title="%s|%s" % (T("Zero Hour"),
-                                                                   T("The time at which the Event started."))),
-                                   label=T("Zero Hour")),
+                             s3_datetime(name="zero_hour",
+                                         label = T("Zero Hour"),
+                                         default = "now",
+                                         comment = DIV(_class="tooltip",
+                                                       _title="%s|%s" % (T("Zero Hour"),
+                                                                         T("The time at which the Event started."))),
+                                         ),
                              Field("closed", "boolean",
                                    default = False,
                                    represent = s3_yes_no_represent,
@@ -254,14 +250,13 @@ class S3EventModel(S3Model):
                                                                    # Should!
                                    #                                T("Exercises mean all screens have a watermark & all notifications have a prefix."))),
                                    label=T("Exercise?")),
-                             Field("zero_hour", "datetime",
-                                   default = current.request.utcnow,
-                                   requires = IS_DATETIME(format=s3_datetime_format),
-                                   represent = s3_utc_represent,
-                                   comment = DIV(_class="tooltip",
-                                                 _title="%s|%s" % (T("Zero Hour"),
-                                                                   T("The time at which the Event started."))),
-                                   label=T("Zero Hour")),
+                             s3_datetime(name="zero_hour",
+                                         label = T("Zero Hour"),
+                                         default = "now",
+                                         comment = DIV(_class="tooltip",
+                                                       _title="%s|%s" % (T("Zero Hour"),
+                                                                         T("The time at which the Incident started."))),
+                                         ),
                              Field("closed", "boolean",
                                    default = False,
                                    represent = s3_yes_no_represent,
@@ -394,31 +389,6 @@ class S3EventModel(S3Model):
                                                 readable=False,
                                                 writable=False),
         )
-
-    # -------------------------------------------------------------------------
-    @staticmethod
-    def event_event_tag_deduplicate(job):
-        """
-           If the record is a duplicate then it will set the job method to update
-        """
-
-        if job.tablename == "event_event_tag":
-            table = job.table
-            data = job.data
-            tag = "tag" in data and data.tag or None
-            event = "event_id" in data and data.event_id or None
-
-            if not tag or not event:
-                return
-
-            query = (table.tag.lower() == tag.lower()) & \
-                    (table.event_id == event)
-
-            _duplicate = current.db(query).select(table.id,
-                                                  limitby=(0, 1)).first()
-            if _duplicate:
-                job.id = _duplicate.id
-                job.method = job.METHOD.UPDATE
 
     # ---------------------------------------------------------------------
     @staticmethod
@@ -556,6 +526,33 @@ class S3EventModel(S3Model):
         if _duplicate:
             item.id = _duplicate.id
             item.data.id = _duplicate.id
+            item.method = item.METHOD.UPDATE
+
+    # -------------------------------------------------------------------------
+    @staticmethod
+    def event_event_tag_deduplicate(item):
+        """
+           Deduplication of Event Tags
+        """
+
+        if item.tablename != "event_event_tag":
+            return
+
+        data = item.data
+        tag = data.get("tag", None)
+        event = data.get("event_id", None)
+
+        if not tag or not event:
+            return
+
+        table = item.table
+        query = (table.tag.lower() == tag.lower()) & \
+                (table.event_id == event)
+
+        _duplicate = current.db(query).select(table.id,
+                                              limitby=(0, 1)).first()
+        if _duplicate:
+            item.id = _duplicate.id
             item.method = item.METHOD.UPDATE
 
     # -------------------------------------------------------------------------
