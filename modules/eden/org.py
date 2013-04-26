@@ -1080,31 +1080,70 @@ class S3OrganisationModel(S3Model):
             Remove any duplicate memberships and update affiliations
         """
 
+        s3db = current.s3db
+        
         id = form.vars.id
         db = current.db
-        table = db.org_organisation_branch
-        record = db(table.id == id).select(table.branch_id,
-                                           table.organisation_id,
-                                           table.deleted,
-                                           table.deleted_fk,
-                                           limitby=(0, 1)).first()
-        try:
-            branch_id = record.branch_id
-            organisation_id = record.organisation_id
-            if branch_id and organisation_id and not record.deleted:
-                query = (table.branch_id == branch_id) & \
-                        (table.organisation_id == organisation_id) & \
-                        (table.id != id) & \
-                        (table.deleted != True)
-                deleted_fk = {"branch_id": branch_id,
-                              "organisation_id": organisation_id}
-                db(query).update(deleted=True,
-                                 branch_id=None,
-                                 organisation_id=None,
-                                 deleted_fk=json.dumps(deleted_fk))
-            current.s3db.pr_update_affiliations(table, record)
-        except:
-            return
+
+        # Fields a branch organisation inherits from its parent organisation
+        inherit = ["organisation_type_id",
+                   "multi_sector_id",
+                   "region",
+                   "country"]
+
+        ltable = s3db.org_organisation_branch
+        otable = s3db.org_organisation
+        btable = s3db.org_organisation.with_alias("org_branch_organisation")
+
+        ifields = [otable[fn] for fn in inherit]  + \
+                  [btable[fn] for fn in inherit]
+
+        left = [otable.on(ltable.organisation_id == otable.id),
+                btable.on(ltable.branch_id == btable.id)]
+        
+        record = db(ltable.id == id).select(
+                    ltable.branch_id,
+                    ltable.organisation_id,
+                    ltable.deleted,
+                    ltable.deleted_fk,
+                    *ifields,
+                    left=left,
+                    limitby=(0, 1)).first()
+
+        if record:
+            try:
+                organisation = record["org_organisation"]
+                branch = record["org_branch_organisation"]
+                link = record["org_organisation_branch"]
+
+                branch_id = link.branch_id
+                organisation_id = link.organisation_id
+                if branch_id and organisation_id and not link.deleted:
+
+                    # Inherit fields from parent organisation
+                    update = dict([(field, organisation[field])
+                                for field in inherit
+                                if not branch[field] and organisation[field]])
+                    if update:
+                        db(otable.id == branch_id).update(**update)
+
+                    # Eliminate duplicate affiliations
+                    query = (ltable.branch_id == branch_id) & \
+                            (ltable.organisation_id == organisation_id) & \
+                            (ltable.id != id) & \
+                            (ltable.deleted != True)
+
+                    deleted_fk = {"branch_id": branch_id,
+                                "organisation_id": organisation_id}
+                    db(query).update(deleted=True,
+                                    branch_id=None,
+                                    organisation_id=None,
+                                    deleted_fk=json.dumps(deleted_fk))
+
+                current.s3db.pr_update_affiliations(ltable, link)
+            except:
+                pass
+        return
 
     # -------------------------------------------------------------------------
     @staticmethod
@@ -2181,20 +2220,20 @@ class S3OfficeModel(S3Model):
 
         represent = S3Represent(lookup=tablename)
         office_type_id = S3ReusableField("office_type_id", table,
-                                sortby="name",
-                                requires=IS_NULL_OR(
-                                            IS_ONE_OF(db, "org_office_type.id",
-                                                      represent,
-                                                      sort=True
-                                                      )),
-                                represent=represent,
-                                label=T("Office Type"),
-                                comment=S3AddResourceLink(c="org",
-                                            f="office_type",
-                                            label=T("Add Office Type"),
-                                            title=T("Office Type"),
-                                            tooltip=T("If you don't see the Type in the list, you can add a new one by clicking link 'Add Office Type'.")),
-                                ondelete="SET NULL")
+                            sortby="name",
+                            requires=IS_NULL_OR(
+                                        IS_ONE_OF(db, "org_office_type.id",
+                                                  represent,
+                                                  sort=True
+                                                  )),
+                            represent=represent,
+                            label=T("Office Type"),
+                            comment=S3AddResourceLink(c="org",
+                                f="office_type",
+                                label=T("Add Office Type"),
+                                title=T("Office Type"),
+                                tooltip=T("If you don't see the Type in the list, you can add a new one by clicking link 'Add Office Type'.")),
+                            ondelete="SET NULL")
 
         configure(tablename,
                   deduplicate=self.office_type_duplicate,
@@ -2217,7 +2256,7 @@ class S3OfficeModel(S3Model):
                                    length=64, # Mayon Compatibility
                                    label=T("Name")),
                              Field("code", length=10, # Mayon compatibility
-                                   label=T("Code")
+                                   label=T("Code"),
                                    # Deployments that don't wants office codes can hide them
                                    #readable=False,
                                    #writable=False,
@@ -2293,8 +2332,8 @@ class S3OfficeModel(S3Model):
                       ),
                       S3SearchOptionsWidget(
                         name="office_search_org",
-                        label=messages.ORGANISATION,
-                        comment=T("Search for office by organization."),
+                        label=T("Organization/Branch"),  
+                        comment=T("Search for office by organization or branch."),
                         field="organisation_id",
                         represent="%(name)s",
                         cols=3
@@ -2337,7 +2376,7 @@ class S3OfficeModel(S3Model):
                   list_fields=["id",
                                "name",
                                "organisation_id", # Filtered in Component views
-                               "type",
+                               "office_type_id",
                                #(T("Address"), "location_id$addr_street"),
                                (messages.COUNTRY, "location_id$L0"),
                                "location_id$L1",
@@ -2688,12 +2727,12 @@ class org_OrganisationRepresent(S3Represent):
             self.parent = False
             fields = ["name", "acronym"]
 
-        super(org_OrganisationRepresent, self) \
-             .__init__(lookup="org_organisation",
-                       fields=fields,
-                       show_link=show_link,
-                       translate=translate,
-                       multiple=multiple)
+        super(org_OrganisationRepresent,
+              self).__init__(lookup="org_organisation",
+                             fields=fields,
+                             show_link=show_link,
+                             translate=translate,
+                             multiple=multiple)
 
         self.acronym = acronym
 
@@ -3182,7 +3221,6 @@ def org_organisation_controller():
                 if type_filter in type_crud_strings:
                     s3.crud_strings.org_organisation = type_crud_strings[type_filter]
 
-
         return True
     s3.prep = prep
 
@@ -3324,7 +3362,7 @@ def org_office_controller():
                     # Filter out items which are already in this inventory
                     s3db.inv_prep(r)
 
-                    # remove CRUD generated buttons in the tabs
+                    # Remove CRUD generated buttons in the tabs
                     s3db.configure("inv_inv_item",
                                    create=False,
                                    listadd=False,
