@@ -92,6 +92,7 @@ from gluon import *
 #from gluon.html import *
 #from gluon.http import HTTP
 #from gluon.validators import *
+from gluon.html import BUTTON
 from gluon.sqlhtml import *
 from gluon.storage import Storage
 
@@ -2610,7 +2611,8 @@ class S3LocationSelectorWidget2(FormWidget):
         settings = current.deployment_settings
         s3 = current.response.s3
         formstyle = s3.crud.formstyle
-        appname = current.request.application
+        request = current.request
+        appname = request.application
         throbber_img = "/%s/static/img/ajax-loader.gif" % appname
 
         gtable = s3db.gis_location
@@ -2631,6 +2633,10 @@ class S3LocationSelectorWidget2(FormWidget):
         lat = None
         lon = None
         parent = ""
+        if value == "dummy":
+            # Validation Error on creating a new Point
+            # Revert to Parent
+            value = request.post_vars.parent
         if value:
             record = db(gtable.id == value).select(gtable.path,
                                                    gtable.parent,
@@ -2720,6 +2726,7 @@ class S3LocationSelectorWidget2(FormWidget):
                                              _for=id)
                 widget.add_class("input-xlarge")
                 # Currently unused, so remove if this remains so
+                from gluon.html import BUTTON
                 comment = BUTTON(comment,
                                  _class="btn btn-primary hide",
                                  _id="%s__button" % id
