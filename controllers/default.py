@@ -205,8 +205,9 @@ def index():
                                 appname
         s3.actions = None
         response.view = "default/index.html"
-        auth.permission.controller = "org"
-        auth.permission.function = "site"
+        permission = auth.permission
+        permission.controller = "org"
+        permission.function = "site"
         permitted_facilities = auth.permitted_facilities(redirect_on_error=False)
         manage_facility_box = ""
         if permitted_facilities:
@@ -582,11 +583,10 @@ def person():
         form = auth.profile(next = next,
                             onaccept = onaccept)
 
-        return dict(
-                title = T("User Profile"),
-                rheader = rheader,
-                form = form,
-            )
+        return dict(title = T("User Profile"),
+                    rheader = rheader,
+                    form = form,
+                    )
 
     set_method("pr", "person",
                method="user",

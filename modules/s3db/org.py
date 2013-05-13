@@ -1195,7 +1195,8 @@ class S3OrganisationResourceModel(S3Model):
     """
 
     names = ["org_resource",
-             "org_resource_type",]
+             "org_resource_type",
+             ]
 
     def model(self):
 
@@ -1210,7 +1211,8 @@ class S3OrganisationResourceModel(S3Model):
         #
         tablename = "org_resource_type"
         table = self.define_table(tablename,
-                                  Field("name", label=T("Resource Type")),
+                                  Field("name",
+                                        label=T("Resource Type")),
                                   s3_comments(),
                                   *s3_meta_fields())
 
@@ -1273,7 +1275,7 @@ class S3OrganisationResourceModel(S3Model):
                                   org_resource_type_id(),
                                   Field("quantity", "integer", 
                                         requires=IS_NULL_OR(
-                                                    IS_INT_IN_RANGE(0, 9999)
+                                                    IS_INT_IN_RANGE(0, 999999)
                                                     ),
                                         label=T("Quantity")),
                                   s3_comments(),
@@ -2321,15 +2323,16 @@ class S3OfficeModel(S3Model):
                              *s3_meta_fields())
 
         # CRUD strings
+        ADD_OFFICE_TYPE = T("Add New Office Type")
         crud_strings[tablename] = Storage(
             title_create=T("Add Office Type"),
             title_display=T("Office Type Details"),
             title_list=T("Office Types"),
             title_update=T("Edit Office Type"),
             title_search=T("Search Office Types"),
-            subtitle_create=T("Add New Office Type"),
+            subtitle_create=ADD_OFFICE_TYPE,
             label_list_button=T("List Office Types"),
-            label_create_button=T("Add New Office Type"),
+            label_create_button=ADD_OFFICE_TYPE,
             label_delete_button=T("Delete Office Type"),
             msg_record_created=T("Office Type added"),
             msg_record_modified=T("Office Type updated"),
@@ -2348,7 +2351,7 @@ class S3OfficeModel(S3Model):
                             label=T("Office Type"),
                             comment=S3AddResourceLink(c="org",
                                 f="office_type",
-                                label=T("Add Office Type"),
+                                label=ADD_OFFICE_TYPE,
                                 title=T("Office Type"),
                                 tooltip=T("If you don't see the Type in the list, you can add a new one by clicking link 'Add Office Type'.")),
                             ondelete="SET NULL")
@@ -2423,6 +2426,7 @@ class S3OfficeModel(S3Model):
                              *s3_meta_fields())
 
         # CRUD strings
+        ADD_OFFICE = T("Add New Office")
         crud_strings[tablename] = Storage(
             title_create=T("Add Office"),
             title_display=T("Office Details"),
@@ -2431,9 +2435,9 @@ class S3OfficeModel(S3Model):
             title_search=T("Search Offices"),
             title_upload=T("Import Offices"),
             title_map=T("Map of Offices"),
-            subtitle_create=T("Add New Office"),
+            subtitle_create=ADD_OFFICE,
             label_list_button=T("List Offices"),
-            label_create_button=T("Add New Office"),
+            label_create_button=ADD_OFFICE,
             label_delete_button=T("Delete Office"),
             msg_record_created=T("Office added"),
             msg_record_modified=T("Office updated"),
