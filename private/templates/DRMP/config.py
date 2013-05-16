@@ -282,6 +282,22 @@ def customize_cms_post(**attr):
         return True
     s3.prep = custom_prep
 
+    # Custom postp
+    standard_postp = s3.postp
+    def custom_postp(r, output):
+        # Call standard postp
+        if callable(standard_postp):
+            output = standard_postp(r, output)
+
+        if r.interactive:
+            if "form" in output:
+                output["form"].add_class("cms_post")
+            elif "item" in output:
+                output["item"].add_class("cms_post")
+
+        return output
+    s3.postp = custom_postp
+
     return attr
 
 settings.ui.customize_cms_post = customize_cms_post
@@ -879,6 +895,22 @@ def customize_gis_location(**attr):
     #crud_settings.submit_button = T("Save changes")
     # Done already within Bootstrap formstyle (& anyway fails with this formstyle)
     #crud_settings.submit_style = "btn btn-primary"
+
+    # Custom PreP
+    standard_prep = s3.prep
+    def custom_prep(r):
+        if r.method == "datalist":
+            # Just show L1s (Districts)
+            s3.filter = (table.level == "L1")
+
+        # Call standard prep
+        if callable(standard_prep):
+            result = standard_prep(r)
+            if not result:
+                return False
+
+        return True
+    s3.prep = custom_prep
 
     return attr
 
