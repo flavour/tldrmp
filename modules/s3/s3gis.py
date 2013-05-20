@@ -596,10 +596,10 @@ class GIS(object):
 
         if len(features) > 0:
 
-            min_lon = 180
-            min_lat = 90
-            max_lon = -180
-            max_lat = -90
+            lon_min = 180
+            lat_min = 90
+            lon_max = -180
+            lat_max = -90
 
             # Is this a simple feature set or the result of a join?
             try:
@@ -628,49 +628,49 @@ class GIS(object):
                 if lon is None or lat is None:
                     continue
 
-                min_lon = min(lon, min_lon)
-                min_lat = min(lat, min_lat)
-                max_lon = max(lon, max_lon)
-                max_lat = max(lat, max_lat)
+                lon_min = min(lon, lon_min)
+                lat_min = min(lat, lat_min)
+                lon_max = max(lon, lon_max)
+                lat_max = max(lat, lat_max)
 
             # Assure a reasonable-sized box.
-            delta_lon = (bbox_min_size - (max_lon - min_lon)) / 2.0
+            delta_lon = (bbox_min_size - (lon_max - lon_min)) / 2.0
             if delta_lon > 0:
-                min_lon -= delta_lon
-                max_lon += delta_lon
-            delta_lat = (bbox_min_size - (max_lat - min_lat)) / 2.0
+                lon_min -= delta_lon
+                lon_max += delta_lon
+            delta_lat = (bbox_min_size - (lat_max - lat_min)) / 2.0
             if delta_lat > 0:
-                min_lat -= delta_lat
-                max_lat += delta_lat
+                lat_min -= delta_lat
+                lat_max += delta_lat
 
             # Move bounds outward by specified inset.
-            min_lon -= bbox_inset
-            max_lon += bbox_inset
-            min_lat -= bbox_inset
-            max_lat += bbox_inset
+            lon_min -= bbox_inset
+            lon_max += bbox_inset
+            lat_min -= bbox_inset
+            lat_max += bbox_inset
 
         else:
             # no features
             config = GIS.get_config()
-            if config.min_lat is not None:
-                min_lat = config.min_lat
+            if config.lat_min is not None:
+                lat_min = config.lat_min
             else:
-                min_lat = -90
-            if config.min_lon is not None:
-                min_lon = config.min_lon
+                lat_min = -90
+            if config.lon_min is not None:
+                lon_min = config.lon_min
             else:
-                min_lon = -180
-            if config.max_lat is not None:
-                max_lat = config.max_lat
+                lon_min = -180
+            if config.lat_max is not None:
+                lat_max = config.lat_max
             else:
-                max_lat = 90
-            if config.max_lon is not None:
-                max_lon = config.max_lon
+                lat_max = 90
+            if config.lon_max is not None:
+                lon_max = config.lon_max
             else:
-                max_lon = 180
+                lon_max = 180
 
-        return dict(min_lon=min_lon, min_lat=min_lat,
-                    max_lon=max_lon, max_lat=max_lat)
+        return dict(lon_min=lon_min, lat_min=lat_min,
+                    lon_max=lon_max, lat_max=lat_max)
 
     # -------------------------------------------------------------------------
     @staticmethod
@@ -5201,7 +5201,9 @@ class GIS(object):
         elif geom_type == "Polygon":
             shape = shrink_polygon(shape)
         elif geom_type == "LineString":
-            points = line.coords
+            points = shape.coords
+            coords = []
+            cappend = coords.append
             for point in points:
                 x = float(format(point[0], formatter))
                 y = float(format(point[1], formatter))
@@ -5270,11 +5272,11 @@ class GIS(object):
             @param height: Height of viewport (if not provided then the default deployment setting is used)
             @param width: Width of viewport (if not provided then the default deployment setting is used)
             @param bbox: default Bounding Box of viewport (if not provided then the Lat/Lon/Zoom are used) (Dict):
-                {"max_lat" : float,
-                 "max_lon" : float,
-                 "min_lat" : float,
-                 "min_lon" : float
-                }
+                {"lon_min" : float,
+                 "lat_min" : float,
+                 "lon_max" : float,
+                 "lat_max" : float,
+                 }
             @param lat: default Latitude of viewport (if not provided then the default setting from the Map Service Catalogue is used)
             @param lon: default Longitude of viewport (if not provided then the default setting from the Map Service Catalogue is used)
             @param zoom: default Zoom level of viewport (if not provided then the default setting from the Map Service Catalogue is used)
@@ -5387,10 +5389,10 @@ class GIS(object):
         else:
             map_width = settings.get_gis_map_width()
         if (bbox
-            and (-90 < bbox["max_lat"] < 90)
-            and (-90 < bbox["min_lat"] < 90)
-            and (-180 < bbox["max_lon"] < 180)
-            and (-180 < bbox["min_lon"] < 180)
+            and (-90 <= bbox["lat_max"] <= 90)
+            and (-90 <= bbox["lat_min"] <= 90)
+            and (-180 <= bbox["lon_max"] <= 180)
+            and (-180 <= bbox["lon_min"] <= 180)
             ):
             # We have sane Bounds provided, so we should use them
             pass
@@ -5663,7 +5665,7 @@ S3.gis.marker_default_width=%i
             center = '''S3.gis.lat,S3.gis.lon
 S3.gis.bottom_left=[%f,%f]
 S3.gis.top_right=[%f,%f]
-''' % (bbox["min_lon"], bbox["min_lat"], bbox["max_lon"], bbox["max_lat"])
+''' % (bbox["lon_min"], bbox["lat_min"], bbox["lon_max"], bbox["lat_max"])
         else:
             center = '''S3.gis.lat=%s
 S3.gis.lon=%s
@@ -5714,12 +5716,12 @@ S3.gis.lon=%s
         #   Localisation of name/popup_label
         #
         if feature_queries:
-            layers_feature_queries = '''
-S3.gis.layers_feature_queries=new Array()'''
+            layers_feature_query = '''
+S3.gis.layers_feature_query=new Array()'''
             counter = -1
             mtable = s3db.gis_marker
         else:
-            layers_feature_queries = ""
+            layers_feature_query = ""
         for layer in feature_queries:
             counter = counter + 1
             name = str(layer["name"])
@@ -5835,8 +5837,8 @@ S3.gis.layers_feature_queries=new Array()'''
                 cluster_threshold = ""
 
             # Generate JS snippet to pass to static
-            layers_feature_queries += '''
-S3.gis.layers_feature_queries[%i]={
+            layers_feature_query += '''
+S3.gis.layers_feature_query[%i]={
  "name":"%s",
  "url":"%s"%s%s%s%s%s
 }
@@ -5855,11 +5857,11 @@ S3.gis.layers_feature_queries[%i]={
         #   REST URLs to back-end resources
         #
         if feature_resources:
-            layers_feature_resources = '''
-S3.gis.layers_feature_resources=new Array()'''
+            layers_feature_resource = '''
+S3.gis.layers_feature_resource=new Array()'''
             counter = -1
         else:
-            layers_feature_resources = ""
+            layers_feature_resource = ""
         for layer in feature_resources:
             counter = counter + 1
             name = str(layer["name"])
@@ -5926,8 +5928,8 @@ S3.gis.layers_feature_resources=new Array()'''
                 # Request the server to provide per-feature Markers
                 url = "%s&markers=1" % url
             # Generate JS snippet to pass to static
-            layers_feature_resources += '''
-S3.gis.layers_feature_resources[%i]={
+            layers_feature_resource += '''
+S3.gis.layers_feature_resource[%i]={
  "name":"%s",
  "id":"%s",
  "url":"%s"%s%s%s%s%s
@@ -5960,6 +5962,7 @@ S3.gis.layers_feature_resources[%i]={
                            GeoRSSLayer,
                            KMLLayer,
                            OpenWeatherMapLayer,
+                           ShapefileLayer,
                            WFSLayer,
                            FeatureLayer,
                            ]
@@ -6080,8 +6083,8 @@ i18n.gis_feature_info="%s"
             draw_polygon,
             marker_default,
             osm_auth,
-            layers_feature_queries,
-            layers_feature_resources,
+            layers_feature_query,
+            layers_feature_resource,
             _features,
             layers_config,
             # i18n Labels
@@ -6150,9 +6153,11 @@ i18n.gis_feature_info="%s"
 class Marker(object):
     """
         Represents a Map Marker
+
+        @ToDo: Support Markers in Themes
     """
 
-    def __init__(self, id=None, layer_id=None):
+    def __init__(self, id=None, tablename=None, layer_id=None):
 
         db = current.db
         s3db = current.s3db
@@ -6179,13 +6184,22 @@ class Marker(object):
                                       mtable.width,
                                       limitby=(0, 1)).first()
             if not marker:
-                # Check to see if we're a Polygon (& hence shouldn't use a default marker)
-                table = s3db.gis_layer_feature
-                query = (table.layer_id == layer_id)
-                layer = db(query).select(table.polygons,
-                                         limitby=(0, 1)).first()
-                if layer and layer.polygons:
-                    polygons = True
+                # Check to see if we're a Polygon/LineString
+                # (& hence shouldn't use a default marker)
+                if tablename == "gis_layer_feature":
+                    table = db.gis_layer_feature
+                    query = (table.layer_id == layer_id)
+                    layer = db(query).select(table.polygons,
+                                             limitby=(0, 1)).first()
+                    if layer and layer.polygons:
+                        polygons = True
+                elif tablename == "gis_layer_shapefile":
+                    table = db.gis_layer_shapefile
+                    query = (table.layer_id == layer_id)
+                    layer = db(query).select(table.gis_feature_type,
+                                             limitby=(0, 1)).first()
+                    if layer and layer.gis_feature_type != 1:
+                        polygons = True
 
         if marker:
             self.image = marker.image
@@ -6200,10 +6214,6 @@ class Marker(object):
             self.image = config.marker_image
             self.height = config.marker_height
             self.width = config.marker_width
-
-        # Always lookup URL client-side
-        #self.url = URL(c="static", f="img",
-        #               args=["markers", marker.image])
 
     def add_attributes_to_output(self, output):
         """
@@ -6340,7 +6350,7 @@ class Layer(object):
                 # SubLayers handled differently
                 append(record)
             else:
-                append(SubLayer(record))
+                append(SubLayer(tablename, record))
 
         # Alphasort layers
         # - client will only sort within their type: s3.gis.layers.js
@@ -6388,13 +6398,26 @@ class Layer(object):
 
     # -------------------------------------------------------------------------
     class SubLayer(object):
-        def __init__(self, record):
+        def __init__(self, tablename, record):
             # Ensure all attributes available (even if Null)
             self.__dict__.update(record)
             del record
             self.safe_name = re.sub('[\\"]', "", self.name)
 
-            self.marker = Marker(layer_id=self.layer_id)
+            if tablename not in ("gis_layer_arcrest",
+                                 "gis_layer_coordinate",
+                                 "gis_layer_empty",
+                                 "gis_layer_js",
+                                 "gis_layer_mgrs",
+                                 "gis_layer_openstreetmap",
+                                 "gis_layer_openweathermap",
+                                 "gis_layer_theme",
+                                 "gis_layer_tms",
+                                 "gis_layer_wms",
+                                 "gis_layer_xyz",
+                                 ):
+                # Layer uses Markers
+                self.marker = Marker(tablename=tablename, layer_id=self.layer_id)
             if hasattr(self, "projection_id"):
                 self.projection = Projection(self.projection_id)
 
@@ -6425,6 +6448,7 @@ class Layer(object):
             if self.dir:
                 output["dir"] = self.dir
 
+        # ---------------------------------------------------------------------
         @staticmethod
         def add_attributes_if_not_default(output, **values_and_defaults):
             # could also write values in debug mode, to check if defaults ignored.
@@ -6446,12 +6470,11 @@ class ArcRESTLayer(Layer):
     class SubLayer(Layer.SubLayer):
         def as_dict(self):
             # Mandatory attributes
-            output = {
-                "id": self.layer_id,
-                "type": "arcrest",
-                "name": self.safe_name,
-                "url": self.url,
-            }
+            output = {"id": self.layer_id,
+                      "type": "arcrest",
+                      "name": self.safe_name,
+                      "url": self.url,
+                      }
 
             # Attributes which are defaulted client-side if not set
             self.setup_folder_and_visibility(output)
@@ -6598,11 +6621,11 @@ class FeatureLayer(Layer):
     """
 
     tablename = "gis_layer_feature"
-    js_array = "S3.gis.layers_features"
+    js_array = "S3.gis.layers_feature"
 
     # -------------------------------------------------------------------------
     class SubLayer(Layer.SubLayer):
-        def __init__(self, record):
+        def __init__(self, tablename, record):
             record_module = record.controller or record.module # Backwards-compatibility
             self.skip = False
             if record_module is not None:
@@ -6616,7 +6639,7 @@ class FeatureLayer(Layer):
                     self.skip = True
             else:
                 raise Exception("FeatureLayer Record '%s' has no controller" % record.name)
-            super(FeatureLayer.SubLayer, self).__init__(record)
+            super(FeatureLayer.SubLayer, self).__init__(tablename, record)
 
         def as_dict(self):
             if self.skip:
@@ -6653,6 +6676,8 @@ class FeatureLayer(Layer):
                       "name": self.safe_name,
                       "url": url,
                       }
+
+            # Attributes which are defaulted client-side if not set
             self.marker.add_attributes_to_output(output)
             self.setup_folder_visibility_and_opacity(output)
             self.setup_clustering(output)
@@ -6674,15 +6699,14 @@ class GeoJSONLayer(Layer):
     class SubLayer(Layer.SubLayer):
         def as_dict(self):
             # Mandatory attributes
-            output = {
-                "id": self.layer_id,
-                "type": "geojson",
-                "name": self.safe_name,
-                "url": self.url,
-            }
-            self.marker.add_attributes_to_output(output)
+            output = {"id": self.layer_id,
+                      "type": "geojson",
+                      "name": self.safe_name,
+                      "url": self.url,
+                      }
 
             # Attributes which are defaulted client-side if not set
+            self.marker.add_attributes_to_output(output)
             projection = self.projection
             if projection.epsg != 4326:
                 output["projection"] = projection.epsg
@@ -6905,6 +6929,8 @@ class GPXLayer(Layer):
                       "name": self.safe_name,
                       "url": url,
                       }
+
+            # Attributes which are defaulted client-side if not set
             self.marker.add_attributes_to_output(output)
             self.add_attributes_if_not_default(
                 output,
@@ -6975,12 +7001,8 @@ class KMLLayer(Layer):
             try:
                 os.mkdir(cachepath)
             except OSError, os_error:
-                s3_debug(
-                    "GIS: KML layers cannot be cached: %s %s" % (
-                        cachepath,
-                        os_error
-                    )
-                )
+                s3_debug("GIS: KML layers cannot be cached: %s %s" % \
+                            (cachepath, os_error))
                 cacheable = False
             else:
                 cacheable = True
@@ -7038,11 +7060,13 @@ class KMLLayer(Layer):
                 # (Requires OpenLayers.Layer.KML to be available)
                 url = self.url
 
-            output = dict(
-                id = self.layer_id,
-                name = self.safe_name,
-                url = url,
-            )
+            # Mandatory attributes
+            output = dict(id = self.layer_id,
+                          name = self.safe_name,
+                          url = url,
+                          )
+
+            # Attributes which are defaulted client-side if not set
             self.add_attributes_if_not_default(
                 output,
                 title = (self.title, ("name", None, "")),
@@ -7075,10 +7099,13 @@ class OSMLayer(Layer):
                 # Cannot display OpenStreetMap layers unless we're using the Spherical Mercator Projection
                 return {}
 
+            # Mandatory attributes
             output = {"id": self.layer_id,
                       "name": self.safe_name,
                       "url1": self.url1,
                       }
+
+            # Attributes which are defaulted client-side if not set
             self.add_attributes_if_not_default(
                 output,
                 base = (self.base, (True,)),
@@ -7142,6 +7169,44 @@ class OpenWeatherMapLayer(Layer):
         return None
 
 # -----------------------------------------------------------------------------
+class ShapefileLayer(Layer):
+    """
+        Shapefile Layers from Catalogue
+    """
+
+    tablename = "gis_layer_shapefile"
+    js_array = "S3.gis.layers_shapefile"
+
+    # -------------------------------------------------------------------------
+    class SubLayer(Layer.SubLayer):
+        def as_dict(self):
+            url = "%s/%s/data.geojson" % \
+                (URL(c="gis", f="layer_shapefile"), self.id)
+            if self.filter:
+                url = "%s?layer_shapefile_%s.%s" % (url, self.id, self.filter)
+
+            # Mandatory attributes
+            output = {"id": self.layer_id,
+                      "type": "shapefile",
+                      "name": self.safe_name,
+                      "url": url,
+                      }
+            
+            # Attributes which are defaulted client-side if not set
+            projection = self.projection
+            if projection.epsg != 4326:
+                output["projection"] = projection.epsg
+            self.marker.add_attributes_to_output(output)
+            self.setup_folder_visibility_and_opacity(output)
+            self.setup_clustering(output)
+            style = self.style
+            if style:
+                style = json.loads(style)
+                output["style"] = style
+
+            return output
+
+# -----------------------------------------------------------------------------
 class ThemeLayer(Layer):
     """
         Theme Layers from Catalogue
@@ -7154,8 +7219,7 @@ class ThemeLayer(Layer):
     class SubLayer(Layer.SubLayer):
         def as_dict(self):
             url = "%s.geojson?theme_data.layer_theme_id=%i&polygons=1&maxdepth=0&references=location_id&fields=value" % \
-                (URL(c="gis", f="theme_data"),
-                 self.id)
+                (URL(c="gis", f="theme_data"), self.id)
 
             # Mandatory attributes
             output = {"id": self.layer_id,
@@ -7163,6 +7227,8 @@ class ThemeLayer(Layer):
                       "name": self.safe_name,
                       "url": url,
                       }
+
+            # Attributes which are defaulted client-side if not set
             self.setup_folder_and_visibility(output)
             self.setup_clustering(output)
             style = self.style
@@ -7184,12 +7250,15 @@ class TMSLayer(Layer):
     # -------------------------------------------------------------------------
     class SubLayer(Layer.SubLayer):
         def as_dict(self):
+            # Mandatory attributes
             output = {"id": self.layer_id,
                       "type": "tms",
                       "name": self.safe_name,
                       "url": self.url,
                       "layername": self.layername
                       }
+
+            # Attributes which are defaulted client-side if not set
             self.add_attributes_if_not_default(
                 output,
                 _base = (self._base, (False,)),
@@ -7214,15 +7283,17 @@ class WFSLayer(Layer):
     # -------------------------------------------------------------------------
     class SubLayer(Layer.SubLayer):
         def as_dict(self):
-            output = dict(
-                id = self.layer_id,
-                name = self.safe_name,
-                url = self.url,
-                title = self.title,
-                featureType = self.featureType,
-                featureNS = self.featureNS,
-                schema = self.wfs_schema,
-            )
+            # Mandatory attributes
+            output = dict(id = self.layer_id,
+                          name = self.safe_name,
+                          url = self.url,
+                          title = self.title,
+                          featureType = self.featureType,
+                          featureNS = self.featureNS,
+                          schema = self.wfs_schema,
+                          )
+
+            # Attributes which are defaulted client-side if not set
             self.add_attributes_if_not_default(
                 output,
                 version = (self.version, ("1.1.0",)),
@@ -7237,7 +7308,6 @@ class WFSLayer(Layer):
             self.setup_folder_visibility_and_opacity(output)
             self.setup_clustering(output)
             return output
-
 
 # -----------------------------------------------------------------------------
 class WMSLayer(Layer):
@@ -7262,12 +7332,14 @@ class WMSLayer(Layer):
         def as_dict(self):
             if self.queryable:
                 current.response.s3.gis.get_feature_info = True
-            output = dict(
-                id = self.layer_id,
-                name = self.safe_name,
-                url = self.url,
-                layers = self.layers
-            )
+            # Mandatory attributes
+            output = dict(id = self.layer_id,
+                          name = self.safe_name,
+                          url = self.url,
+                          layers = self.layers
+                          )
+
+            # Attributes which are defaulted client-side if not set
             legend_url = self.legend_url
             if legend_url and not legend_url.startswith("http"):
                 legend_url = "%s/%s%s" % \
@@ -7306,10 +7378,13 @@ class XYZLayer(Layer):
     # -------------------------------------------------------------------------
     class SubLayer(Layer.SubLayer):
         def as_dict(self):
+            # Mandatory attributes
             output = {"id": self.layer_id,
                       "name": self.safe_name,
                       "url": self.url
                       }
+
+            # Attributes which are defaulted client-side if not set
             self.add_attributes_if_not_default(
                 output,
                 _base = (self._base, (False,)),

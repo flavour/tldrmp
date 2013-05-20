@@ -1300,6 +1300,12 @@ class S3OrganisationResourceModel(S3Model):
             msg_record_deleted=T("Resource deleted"),
             msg_list_empty=T("No Resources in Inventory"))
 
+        self.configure(tablename,
+                       context = {"location": "location_id",
+                                  "organisation": "organisation_id",
+                                  },
+                       )
+
         # ---------------------------------------------------------------------
         # Pass names back to global scope (s3.*)
         #
@@ -2521,6 +2527,9 @@ class S3OfficeModel(S3Model):
                                "phone1",
                                "email"
                                ],
+                  context = {"location": "location_id",
+                             "organisation": "organisation_id",
+                             },
                   realm_components=["contact_emergency",
                                     "config",
                                     "image",
@@ -3257,7 +3266,7 @@ def org_organisation_controller():
                     # Hide/show host role after project selection in embed-widget
                     tn = r.link.tablename
                     s3db.configure(tn,
-                                   post_process='''hide_host_role($('#%s').val())''')
+                                   post_process='''S3.hide_host_role($('#%s').val())''')
                     s3.scripts.append("/%s/static/scripts/S3/s3.hide_host_role.js" % \
                         request.application)
 
@@ -3540,6 +3549,15 @@ def org_office_controller():
                     s3db.configure("asset_asset",
                                    create_next = None)
 
+            elif r.method in ("create", "update"):
+                if r.method == "update":
+                    table.obsolete.readable = table.obsolete.writable = True
+                # Context from a Profile page?"
+                org_id = request.get_vars.get("(organisation)", None)
+                if org_id:
+                    field = table.organisation_id
+                    field.default = org_id
+                    field.readable = field.writable = False
             elif r.id:
                 table.obsolete.readable = table.obsolete.writable = True
             elif r.representation == "geojson":
