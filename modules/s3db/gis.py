@@ -415,12 +415,20 @@ class S3LocationModel(S3Model):
             On Accept for GIS Locations (after DB I/O)
         """
 
-        if not current.auth.override and \
-           not current.auth.rollback:
+        auth = current.auth
+        vars = form.vars
+        id = vars.id
+
+        if vars.path and current.response.s3.bulk:
+            # Don't import path from foreign sources as IDs won't match
+            db = current.db
+            db(db.gis_location.id == id).update(path=None)
+
+        if not auth.override and \
+           not auth.rollback:
             # Update the Path (async if-possible)
             # (skip during prepop)
-            vars = form.vars
-            feature = json.dumps(dict(id=vars.id,
+            feature = json.dumps(dict(id=id,
                                       level=vars.get("level", False),
                                       ))
             current.s3task.async("gis_update_location_tree",
@@ -3745,7 +3753,7 @@ class S3MapModel(S3Model):
                                       data = data)
 
             # Create Database table to store these features in
-            Fields = [Field("wkt"),
+            Fields = [Field("wkt", "text"),
                       Field("layer_id", table),
                       ]
             append = Fields.append
