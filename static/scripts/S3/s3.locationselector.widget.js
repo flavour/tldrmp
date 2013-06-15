@@ -6,13 +6,18 @@
  * @ToDo: Support more than 1/page by not using fixed ids but varying with fieldname (see locationselector.widget2)
  */
 
-// Main jQuery function
+// Document.onReady
 $(function() {
     // Moved to sub-function to be able to fire on inserted form
-    s3_gis_locationselector_jQuery_onReady();
+    s3_gis_locationselector_onReady();
 });
 
-function s3_gis_locationselector_jQuery_onReady() {
+function s3_gis_locationselector_activate() {
+    // Called after form is inserted into page to activate
+    s3_gis_locationselector_onReady();
+}
+
+function s3_gis_locationselector_onReady() {
     if (typeof(S3.gis.location_id) != 'undefined') {
         // This page includes the Location Selector Widget
         // Hide the Label row
@@ -128,15 +133,7 @@ function s3_gis_locationselector_jQuery_onReady() {
             }
         });
     }
-}
 
-// Main Ext function
-Ext.onReady(function(){
-    // Moved to sub-function to be able to fire on inserted form
-    s3_gis_locationselector_Ext_onReady();
-});
-
-function s3_gis_locationselector_Ext_onReady() {
     // Map Popup
     var mapButton = Ext.get('gis_location_map-btn');
     if (mapButton) {
@@ -169,12 +166,6 @@ function s3_gis_locationselector_Ext_onReady() {
             }
         });
     }
-}
-
-function s3_gis_locationselector_activate() {
-    // Called after form is inserted into page to activate
-    s3_gis_locationselector_jQuery_onReady();
-    s3_gis_locationselector_Ext_onReady();
 }
 
 function s3_gis_autocompletes() {
@@ -615,28 +606,27 @@ function s3_gis_search_hierarchy(location_id, recursive, last) {
     $.ajax({
         async: true,
         url: url,
-        dataType: 'json',
-        success: function(data) {
-            if (data[0].id == location_id) {
-                // Parse the new location
-                var name = data[0].name;
-                var level = data[0].level;
-                var parent = data[0].parent;
+        dataType: 'json'
+    }).done(function(data) {
+        if (data[0].id == location_id) {
+            // Parse the new location
+            var name = data[0].name;
+            var level = data[0].level;
+            var parent = data[0].parent;
 
-                // Store the ID for later retrieval (in case we 'Select' this Location)
-                $('body').data(level, location_id);
+            // Store the ID for later retrieval (in case we 'Select' this Location)
+            $('body').data(level, location_id);
 
-                // Display the details for this level
-                $('#gis_location_' + level + '_search').val(name);
-                $('#gis_location_' + level + '_label__row').removeClass('hide').show();
-                $('#gis_location_' + level + '_search__row').removeClass('hide').show();
-                if (recursive && parent) {
-                    s3_gis_search_hierarchy(parent, true, true);
-                } else if (last) {
-                    $('#gis_location_search_throbber').hide();
-                    // Display the Select Button
-                    $('#gis_location_search_select-btn').removeClass('hide').show();
-                }
+            // Display the details for this level
+            $('#gis_location_' + level + '_search').val(name);
+            $('#gis_location_' + level + '_label__row').removeClass('hide').show();
+            $('#gis_location_' + level + '_search__row').removeClass('hide').show();
+            if (recursive && parent) {
+                s3_gis_search_hierarchy(parent, true, true);
+            } else if (last) {
+                $('#gis_location_search_throbber').hide();
+                // Display the Select Button
+                $('#gis_location_search_select-btn').removeClass('hide').show();
             }
         }
     });
@@ -662,71 +652,70 @@ function s3_gis_l0_select() {
     $.ajax({
         async: true,
         url: url,
-        dataType: 'json',
-        success: function(data) {
-            if (data.id == L0) {
-                // Store the code (for the Geocoder)
-                S3.gis.country = data.code;
-                // Read which hierarchy levels we have & their labels
-                for (level = 1; level <= 5; level++) {
-                    var _level = 'L' + level;
-                    if (data[_level]) {
-                        // Replace the label
-                        $('#gis_location_' + _level + '_label__row label').text(data[_level] + ':');
-                        s3_gis_show_level(level);
-                        // Replace the Help Tip
-                        //var tooltip = $('#gis_location_' + _level + '__row div.tooltip');
-                        //var old_title = tooltip.attr('title');
-                        //var parts = old_title.split('|');
-                        //var newtitle = data[_level] + '|' + parts[1]+ '|' + parts[2];
-                        //tooltip.attr('title', newtitle);
-                        // Re-apply Cluetip so that it sees the new value
-                        //tooltip.cluetip({activation: 'hover', sticky: false, splitTitle: '|'});
-                    } else {
-                        s3_gis_hide_level(level);
-                    }
-                    // Clear the value
-                    $('#gis_location_' + _level + ', #gis_location_' + _level + '_ac').val('');
+        dataType: 'json'
+    }).done(function(data) {
+        if (data.id == L0) {
+            // Store the code (for the Geocoder)
+            S3.gis.country = data.code;
+            // Read which hierarchy levels we have & their labels
+            for (level = 1; level <= 5; level++) {
+                var _level = 'L' + level;
+                if (data[_level]) {
+                    // Replace the label
+                    $('#gis_location_' + _level + '_label__row label').text(data[_level] + ':');
+                    s3_gis_show_level(level);
+                    // Replace the Help Tip
+                    //var tooltip = $('#gis_location_' + _level + '__row div.tooltip');
+                    //var old_title = tooltip.attr('title');
+                    //var parts = old_title.split('|');
+                    //var newtitle = data[_level] + '|' + parts[1]+ '|' + parts[2];
+                    //tooltip.attr('title', newtitle);
+                    // Re-apply Cluetip so that it sees the new value
+                    //tooltip.cluetip({activation: 'hover', sticky: false, splitTitle: '|'});
+                } else {
+                    s3_gis_hide_level(level);
                 }
-                if ( !S3.gis.no_map ) {
-                    // Zoom the Map?
-                    var lat = $('#gis_location_lat').val();
-                    var lon = $('#gis_location_lon').val();
-                    if (!lat && !lon) {
-                        // If no LatLon already set then Zoom the map to the appropriate location
-                        var left = data.lon_min;
-                        var bottom = data.lat_min;
-                        var right = data.lon_max;
-                        var top = data.lat_max;
-                        if (left && bottom && right && top) {
-                            // If we have Bounds then Zoom to the Bounds
-                            s3_gis_zoomMap(left, bottom, right, top);
-                        } else {
-                            lat = data.lat;
-                            lon = data.lon;
-                            if (lat && lon) {
-                                // Otherwise, simply Center the map
-                                // @ToDo: Support non-default maps
-                                var map = S3.gis.maps['default_map'];
-                                var newPoint = new OpenLayers.LonLat(lon, lat);
-                                newPoint.transform(S3.gis.proj4326, map.getProjectionObject());
-                                if (map.s3.mapWin.rendered) {
-                                    // Map has been opened, so center directly
-                                    map.setCenter(newPoint);
-                                } else {
-                                    // Map hasn't yet been opened, so change the mapPanel ready for when it is
-                                    map.s3.mapPanel.center = newPoint;
-                                }
+                // Clear the value
+                $('#gis_location_' + _level + ', #gis_location_' + _level + '_ac').val('');
+            }
+            if ( !S3.gis.no_map ) {
+                // Zoom the Map?
+                var lat = $('#gis_location_lat').val();
+                var lon = $('#gis_location_lon').val();
+                if (!lat && !lon) {
+                    // If no LatLon already set then Zoom the map to the appropriate location
+                    var left = data.lon_min;
+                    var bottom = data.lat_min;
+                    var right = data.lon_max;
+                    var top = data.lat_max;
+                    if (left && bottom && right && top) {
+                        // If we have Bounds then Zoom to the Bounds
+                        s3_gis_zoomMap(left, bottom, right, top);
+                    } else {
+                        lat = data.lat;
+                        lon = data.lon;
+                        if (lat && lon) {
+                            // Otherwise, simply Center the map
+                            // @ToDo: Support non-default maps
+                            var map = S3.gis.maps['default_map'];
+                            var newPoint = new OpenLayers.LonLat(lon, lat);
+                            newPoint.transform(S3.gis.proj4326, map.getProjectionObject());
+                            if (map.s3.mapWin.rendered) {
+                                // Map has been opened, so center directly
+                                map.setCenter(newPoint);
+                            } else {
+                                // Map hasn't yet been opened, so change the mapPanel ready for when it is
+                                map.s3.mapPanel.center = newPoint;
                             }
                         }
                     }
                 }
-                // @ToDo: Are we operating in mode strict?
-                //        - these will need adding to the output if we need them
-                // Store in global var?
-                //data.strict_hierarchy;
-                //data.location_parent_required;
             }
+            // @ToDo: Are we operating in mode strict?
+            //        - these will need adding to the output if we need them
+            // Store in global var?
+            //data.strict_hierarchy;
+            //data.location_parent_required;
         }
     });
 
