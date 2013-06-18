@@ -109,6 +109,17 @@ div.dl {
 }
 .loading {
     background: url(img/ajax-loader.gif) center no-repeat !important;
+} /*
+.throbber {
+    background-image: url(img/ajax-loader.gif);
+    height: 48px;
+    width: 48px;
+} */
+
+/* Need long form to override widgets.css on margin */
+.form-container form button.ui-datepicker-trigger {
+    background-image: url(img/calendar.gif);
+    margin-left: 10px;
 }
 
 /* Match .btn.btn-primary */
@@ -151,18 +162,6 @@ div.dl {
     box-shadow: 0 1px 1px #aaaaa7;
 }
 
-#email__error,
-#password__error {
-    margin-left: 15px;
-    padding: 5px;
-    border-radius: 4px;
-    border: 1px solid #b2b2b2;
-    font-weight: normal;
-    font-style: normal;
-    color: #b84947;
-    background-color: #f2dedd;
-}
-
 a.btn.btn-primary.main-add {
     font-size: 15px;
     float: right;
@@ -200,6 +199,7 @@ a i.icon.icon-plus-sign.big-add:hover {
     background-color: #fff;
     border: 1px solid #b2b2b2;
     border-radius: 5px;
+    box-shadow: none;
     position: relative;
     top: 11px;
     padding-top: 7px;
@@ -324,10 +324,6 @@ a.action-btn:hover {
     *background-color: #a9302a;
 }
 
-.ui-datepicker-trigger {
-    margin-left: 10px;
-}
-
 /* Required Fields */
 b.red {
     position: absolute;
@@ -347,6 +343,52 @@ b.red {
 
 .s3_add_resource_link {
     font-size: 11px;
+}
+
+/* Help Tooltips */
+
+.cluetip-default{
+    background-color: #ffffff;
+    border: 1px solid #ccc;
+    border: 1px solid rgba(0, 0, 0, 0.2);
+    -webkit-border-radius: 6px;
+       -moz-border-radius: 6px;
+            border-radius: 6px;
+    -webkit-box-shadow: 0 5px 10px rgba(0, 0, 0, 0.2);
+       -moz-box-shadow: 0 5px 10px rgba(0, 0, 0, 0.2);
+            box-shadow: 0 5px 10px rgba(0, 0, 0, 0.2);
+    -webkit-background-clip: padding-box;
+       -moz-background-clip: padding;
+            background-clip: padding-box;
+}
+
+.cluetip-default .ui-cluetip-header {
+    padding: 8px 14px;
+    margin: 0;
+    font-size: 14px;
+    font-weight: bold;
+    line-height: 18px;
+    background-color: #ededed;
+    border: 1px solid #ccc;
+    border: 1px solid rgba(0, 0, 0, 0.2);
+    border-bottom: 1px solid #ebebeb;
+    -webkit-border-radius: 5px 5px 0 0;
+       -moz-border-radius: 5px 5px 0 0;
+            border-radius: 5px 5px 0 0;
+}
+
+.ui-cluetip-content {
+    font-size: 13px;
+    padding-top: 5px;
+    padding-bottom: 5px;
+    border: 1px solid #ccc;
+    border: 1px solid rgba(0, 0, 0, 0.2);
+    border-bottom-left-radius: 6px;
+    border-bottom-right-radius: 6px;
+}
+
+#cluetip.cluetip.ui-widget.ui-widget-content.ui-cluetip.clue-right-default.cluetip-default {
+    border: none;
 }
 
 /* S3SQLCustomForm */
@@ -381,7 +423,13 @@ table.embeddedComponent .add-row td {
     border-bottom: none;
     padding: 0 5px 0 0;
 }
-
+.inline-add {
+    background-image: url(img/add.png);
+}
+.inline-edt {
+    background-image: url(img/edit.png);
+    width: 18px;
+}
 .s3_inline_add_resource_link {
     margin-top: 5px;
 }
@@ -430,6 +478,31 @@ table.embeddedComponent .add-row td {
     margin-bottom: -6px;
 }
 
+/* Updates */
+#body__error,
+#name__error,
+#location_id__error {
+    width: 50%;
+    padding: 5px;
+    border-radius: 4px;
+    border: 1px solid #b2b2b2;
+    font-weight: normal;
+    font-style: normal;
+    color: #b84947;
+    background-color: #f2dedd;
+    margin-top: 7px;
+}
+div.defaultlocation_error.error{
+    padding: 5px;
+    border-radius: 4px;
+    border: 1px solid #b2b2b2;
+    font-weight: normal;
+    font-style: normal;
+    color: #b84947;
+    background-color: #f2dedd;
+    margin-top: 7px;
+}
+
 /* Contacts Page */
 #pr_person_sub_human_resourcehuman_resource__label {
     /* Hide the colon */
@@ -456,14 +529,16 @@ table.embeddedComponent .add-row td {
 /* Projects Page */
 
 /* Dropdown with AddResourceLink takes up more vertical space than an INPUT so center the INPUTS
-    and the + button
+    and the + button and throbber
  */
 #sub_donororganisation_donororganisation_i_currency_edit_none,
 #sub_donororganisation_donororganisation_i_currency_edit_0,
 #sub_donororganisation_donororganisation_i_amount_edit_none,
 #sub_donororganisation_donororganisation_i_amount_edit_0,
-#add-partnerorganisation-none img,
-#add-donororganisation-none img {
+#add-partnerorganisation-none,
+#add-donororganisation-none,
+#throbber-partnerorganisation-none,
+#throbber-donororganisation-none {
     position: relative;
     top: -10px;
 }
@@ -620,10 +695,10 @@ table.embeddedComponent .add-row td {
     color: #666;
 }
 
-a#datatable_previous.previous.paginate_button,
-a#datatable_first.first.paginate_button,
-a#datatable_last.last.paginate_button,
-a#datatable_next.next.paginate_button  {
+#datatable_previous.previous.paginate_button,
+#datatable_first.first.paginate_button,
+#datatable_last.last.paginate_button,
+#datatable_next.next.paginate_button  {
     background-color: #fff;
     border: 1px solid #b7b7b7;
     border-radius: 4px;
@@ -679,6 +754,23 @@ a#datatable_next.next.paginate_button  {
     margin-bottom: 10px;
 }
 
+#email__error,
+#password__error {
+    margin-left: 15px;
+    padding: 5px;
+    border-radius: 4px;
+    border: 1px solid #b2b2b2;
+    font-weight: normal;
+    font-style: normal;
+    color: #b84947;
+    background-color: #f2dedd;
+}
+
+#submit_record__row td.w2p_fw {
+    padding-top: 15px;
+    padding-left: 12px;
+}
+
 /* Registration Screen */
 #auth_user_first_name,
 #auth_user_last_name,
@@ -695,9 +787,3 @@ a#datatable_next.next.paginate_button  {
 #auth_user_utc_offset__row td.w2p_fc div.tooltip {
     margin-left: 15px;
 }
-
-#submit_record__row td.w2p_fw {
-    padding-top: 15px;
-    padding-left: 12px;
-}
-
