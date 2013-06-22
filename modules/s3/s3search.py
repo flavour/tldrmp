@@ -1070,8 +1070,10 @@ class S3Search(S3CRUD):
         format = r.representation
         output = dict()
 
-        if r.component and self != self.resource.search:
-            output = self.resource.search(r, **attr)
+        if r.component:
+            search_method = self.resource.search_method()
+            if self != search_method:
+                output = search_method(r, **attr)
 
         # Autocomplete-Widget
         elif "is_autocomplete" in attr:
@@ -2436,6 +2438,8 @@ class S3OrganisationSearch(S3Search):
         resource = self.resource
         table = self.table
 
+        use_branches = current.deployment_settings.get_org_branches()
+
         # Query comes in pre-filtered to accessible & deletion_status
         # Respect response.s3.filter
         resource.add_filter(response.s3.filter)
@@ -2456,10 +2460,11 @@ class S3OrganisationSearch(S3Search):
         if filter and value:
 
             if filter == "~":
-                query = (S3FieldSelector("parent.name").lower().like(value + "%")) | \
-                        (S3FieldSelector("parent.acronym").lower().like(value + "%")) | \
-                        (S3FieldSelector("organisation.name").lower().like(value + "%")) | \
+                query = (S3FieldSelector("organisation.name").lower().like(value + "%")) | \
                         (S3FieldSelector("organisation.acronym").lower().like(value + "%"))
+                if use_branches:
+                    query |= (S3FieldSelector("parent.name").lower().like(value + "%")) | \
+                             (S3FieldSelector("parent.acronym").lower().like(value + "%"))
 
             else:
                 output = current.xml.json_message(False, 400,
@@ -2474,13 +2479,16 @@ class S3OrganisationSearch(S3Search):
                                  name="Search results are over %d. Please input more characters." \
                                  % MAX_SEARCH_RESULTS)])
         else:
-            btable = current.s3db.org_organisation_branch
             field = table.name
             field2 = table.acronym
-            field3 = btable.organisation_id
 
             # Fields to return
-            fields = [table.id, field, field2, field3]
+            fields = [table.id, field, field2]
+            if use_branches:
+                btable = current.s3db.org_organisation_branch
+                field3 = btable.organisation_id
+                fields.append(field3)
+                db = current.db
 
             attributes = dict(orderby=field)
             limitby = resource.limitby(start=0, limit=limit)
@@ -2489,9 +2497,12 @@ class S3OrganisationSearch(S3Search):
             rows = resource._load(*fields, **attributes)
             output = []
             append = output.append
-            db = current.db
             for row in rows:
-                name = row[table].name
+                if use_branches:
+                    _row = row[table]
+                else:
+                    _row = row
+                name = _row.name
                 parent = None
                 if "org_organisation_branch" in row:
                     query = (table.id == row[btable].organisation_id)
@@ -2500,11 +2511,11 @@ class S3OrganisationSearch(S3Search):
                     if parent:
                         name = "%s > %s" % (parent.name, name)
                 if not parent:
-                    acronym = row[table].acronym
+                    acronym = _row.acronym
                     if acronym:
                         name = "%s (%s)" % (name, acronym)
                 record = dict(
-                    id = row[table].id,
+                    id = _row.id,
                     name = name,
                     )
                 append(record)

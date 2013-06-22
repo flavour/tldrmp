@@ -39,10 +39,10 @@ from selenium.webdriver.support.ui import Select, WebDriverWait
 
 from gluon import current
 
+from s3.s3resource import S3FieldSelector
+from s3.s3search import *
 from s3.s3utils import s3_unicode
 from s3.s3widgets import *
-from s3.s3search import *
-from s3.s3resource import S3FieldSelector
 
 from tests.core import *
 
@@ -274,7 +274,7 @@ class SeleniumUnitTest(Web2UnitTest):
             confirmation_class = "alert alert-success"
         else:
             confirmation_class = "confirmation"
-        return WebDriverWait(self.browser, 30).until(
+        return WebDriverWait(self.browser, 3).until(
                     lambda driver:
                                 driver.find_element_by_xpath("//div[@class='%s']" % confirmation_class))
 
@@ -346,7 +346,7 @@ class SeleniumUnitTest(Web2UnitTest):
         if isinstance(row_count, dict) and form_type == self.search.simple_form:
             key = row_count["key"]
             resource = current.s3db.resource(row_count["tablename"])
-            simpleSearch = resource.search.simple[0]
+            simpleSearch = resource.search_method().simple[0]
             if len(fields) == 0:
                 fields = ({"name":simpleSearch[0],"value":key},)
             searchFields = simpleSearch[1].field
@@ -392,7 +392,7 @@ class SeleniumUnitTest(Web2UnitTest):
 
         if isinstance(row_count, dict) and form_type == self.search.advanced_form:
             resource = current.s3db.resource(row_count["tablename"])
-            search_list = resource.search.advanced
+            search_list = resource.search_method().advanced
             for search in search_list:
                 widget = search[1]
                 if isinstance(widget, S3SearchOptionsWidget):

@@ -1968,38 +1968,28 @@ class GIS(object):
                     else:
                         _tooltip = ""
                 attr = {}
-                fields = set(popup_fields + attr_fields)
-                lfields, joins, left, distinct = resource.resolve_selectors(fields)
+
+                fields = list(set(popup_fields + attr_fields))
+                if pkey not in fields:
+                    fields.insert(0, pkey)
+
+                records = resource.fast_select(fields,
+                                               # Override default limit=PAGESIZE
+                                               start=None,
+                                               represent=True)
+
+                rfields = records["rfields"]
                 popup_cols = []
                 attr_cols = []
-                for f in lfields:
-                    colname = f.colname
+                for f in rfields:
                     fname = f.fname
                     selector = f.selector
-                    if fname in popup_fields:
-                        popup_cols.append(colname)
-                    elif selector in popup_fields:
-                        popup_cols.append(colname)
-                    if fname in attr_fields:
-                        attr_cols.append(colname)
-                    elif selector in attr_fields:
-                        attr_cols.append(colname)
-                if pkey not in lfields:
-                    lfields.insert(0, pkey)
+                    if fname in popup_fields or selector in popup_fields:
+                        popup_cols.append(f.colname)
+                    if fname in attr_fields or selector in attr_fields:
+                        attr_cols.append(f.colname)
 
-                # Deactivate pagination
-                manager = current.manager
-                ROWSPERPAGE = manager.ROWSPERPAGE
-                manager.ROWSPERPAGE = None
-                # Extract/Represent the relevant data
-                data = resource.fast_select(lfields,
-                                            # These seem to be in a different format
-                                            #left=left,
-                                            distinct=distinct,
-                                            represent=True,
-                                            )["data"]
-                # Restore pagination
-                manager.ROWSPERPAGE = ROWSPERPAGE
+                data = records["data"]
                 for record in data:
                     record_id = int(record[str(table[pkey])])
                     if attr_cols:
@@ -7482,9 +7472,9 @@ class S3Map(S3Search):
 
         output = {}
 
-        search = self.resource.search
-        if r.component and self != search:
-            output = search(r, **attr)
+        search_method = self.resource.search_method()
+        if r.component and self != search_method:
+            output = search_method(r, **attr)
 
         # Save search
         elif "save" in r.vars :
@@ -7493,11 +7483,11 @@ class S3Map(S3Search):
 
         # Interactive or saved search
         elif "load" in r.vars or r.interactive and \
-             search._S3Search__interactive:
+             search_method._S3Search__interactive:
                 # Put shortcuts where other methods expect them
-                self.advanced = search.advanced
+                self.advanced = search_method.advanced
                 # We want advanced open by default
-                #self.simple = search.simple
+                #self.simple = search_method.simple
                 output = self.search_interactive(r, **attr)
 
         if not output:
