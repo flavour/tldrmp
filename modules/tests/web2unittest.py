@@ -418,7 +418,7 @@ class SeleniumUnitTest(Web2UnitTest):
 
         time.sleep(1)
 
-        if results_expected == True:
+        if results_expected:
             self.assertFalse(
             browser.find_element_by_id("table-container").text
                     == "No Records Found",
@@ -466,8 +466,8 @@ class SeleniumUnitTest(Web2UnitTest):
     def create(self,
                tablename,
                data,
-               success = True,
-               dbcallback = None
+               success=True,
+               dbcallback=None
                ):
         """
             Generic method to create a record from the data passed in
@@ -493,7 +493,7 @@ class SeleniumUnitTest(Web2UnitTest):
         try:
             elem = self.get_confirmation()
             elem.click()
-            time.sleep(1) # Give it time to dissolve
+            time.sleep(1)  # Give it time to dissolve
         except:
             pass
 
@@ -505,61 +505,10 @@ class SeleniumUnitTest(Web2UnitTest):
                 time.sleep(details[3])
             if len(details) >= 3:
                 el_type = details[2]
-                if el_type == "automatic":
-                    try:
-                        browser.find_element_by_id("dummy_"+el_id)
-                        if len(details) >= 5:
-                            needle = details[4]
-                        else:
-                            needle = el_value
-                        raw_value = self.w_autocomplete(el_value,
-                                                        el_id,
-                                                        needle,
-                                                        )
-                    except NoSuchElementException:
-                        el = browser.find_element_by_id(el_id)
-                        raw_value = False
-                        options_list = el.find_elements_by_tag_name("option")
-                        # Find the Longest Word Trimmed Match that matches with el_value
-                        option = self.find_max_match(options_list, el_value)
-                        option.click()
-                        raw_value = option.get_attribute("value")
-                        try:
-                            raw_value = int(raw_value)
-                        except:
-                            pass
-                        
-                elif el_type == "option":
-                    el = browser.find_element_by_id(el_id)
-                    raw_value = False
-                    options_list = el.find_elements_by_tag_name("option")
-                    # Find the Longest Word Trimmed Match that matches with el_value
-                    option = self.find_max_match(options_list, el_value)
-                    if option is None:
-                        raise NoSuchElementException("Option could not be found")
-                    option.click()
-                    raw_value = option.get_attribute("value")
-                    try:
-                        raw_value = int(raw_value)
-                    except:
-                        pass
-                    
-                    # Test that we have an id that can be used in the database
-                    if el_value and el_value != "-":
-                        self.assertTrue(raw_value, "%s option cannot be found in %s" % (el_value, el_id))
-                elif el_type == "checkbox":
+                if el_type == "checkbox":
                     for value in el_value:
                         self.browser.find_element_by_xpath("//label[contains(text(),'%s')]" % value).click()
                         # @ToDo: Add value to id_data to check for create function
-                elif el_type == "autocomplete":
-                    if len(details) >= 5:
-                        needle = details[4]
-                    else:
-                        needle = el_value
-                    raw_value = self.w_autocomplete(el_value,
-                                                    el_id,
-                                                    needle,
-                                                    )
                 elif el_type == "inv_widget":
                     raw_value = self.w_inv_item_select(el_value,
                                                        tablename,
@@ -578,24 +527,54 @@ class SeleniumUnitTest(Web2UnitTest):
                 elif el_type == "gis_location":
                     self.w_gis_location(el_value,
                                         details[0],
-                                       )
+                                        )
                     raw_value = None
-                else: # Embedded form fields
+                else:  # Embedded form fields
                     el_id = "%s_%s" % (el_type, details[0])
                     el = browser.find_element_by_id(el_id)
                     el.send_keys(el_value)
                     raw_value = None
 
             else:
-                # Normal Input field
-                el = browser.find_element_by_id(el_id)
-                if isinstance(table[details[0]].widget, S3DateWidget):
-                    el_value_date = datetime.datetime.strptime(el_value,"%Y-%m-%d")# %H:%M:%S")
+                # Look for autocomplete input field.
+                el = browser.find_elements_by_id("dummy_"+el_id)
+                if len(el) != 0:
+                    # Autocomplete input found.
+                    el = el[0]
+                else:
+                    el = browser.find_element_by_id(el_id)
+                class_name = el.get_attribute("class")
+                if "generic-widget" in class_name:
+                    # Dropdown option
+                    raw_value = False
+                    options_list = el.find_elements_by_tag_name("option")
+                    # Find the Longest Word Trimmed Match that matches with el_value
+                    option = self.find_max_match(options_list, el_value)
+                    if option is None:
+                        raise NoSuchElementException("%s option could not be found in %s" % (el_value, el_id))
+                    option.click()
+                    raw_value = option.get_attribute("value")
+                    try:
+                        raw_value = int(raw_value)
+                    except:
+                        pass
+
+                    # Test that we have an id that can be used in the database
+                    if el_value and el_value != "-":
+                        self.assertTrue(raw_value, "%s option cannot be found in %s" % (el_value, el_id))
+                elif "ui-autocomplete-input" in class_name:
+                    # Autocomplete field
+                    raw_value = self.w_autocomplete(el_value,
+                                                    el_id,
+                                                    el_value,
+                                                    )
+                elif isinstance(table[details[0]].widget, S3DateWidget):
+                    el_value_date = datetime.datetime.strptime(el_value, "%Y-%m-%d") # %H:%M:%S")
                     el_value = el_value_date.strftime(date_format)
                     el.send_keys(el_value)
                     raw_value = el_value_date
                 elif isinstance(table[details[0]].widget, S3DateTimeWidget):
-                    el_value_datetime = datetime.datetime.strptime(el_value,"%Y-%m-%d %H:%M:%S")
+                    el_value_datetime = datetime.datetime.strptime(el_value, "%Y-%m-%d %H:%M:%S")
                     el_value = el_value_datetime.strftime(datetime_format)
                     el.send_keys(el_value)
                     #raw_value = el_value_datetime
@@ -603,15 +582,15 @@ class SeleniumUnitTest(Web2UnitTest):
                     # @ToDo: Fix hack to stop checking datetime field. This is because the field does not support data entry by key press
                     # Use the raw value to check that the record was added succesfully
                 else:
+                    # Normal text input
                     el.clear()
                     el.send_keys(el_value)
                     raw_value = el_value
-
             if raw_value:
                 id_data.append([details[0], raw_value])
 
         result["before"] = self.getRows(table, id_data, dbcallback)
-        
+
         # Submit the Form
         submit_btn = browser.find_element_by_css_selector("input[type='submit']")
         submit_btn.click()
@@ -635,13 +614,15 @@ class SeleniumUnitTest(Web2UnitTest):
             except NoSuchElementException:
                 pass
 
-        self.assertTrue(confirm == success,
-                        "Unexpected %s to create record" %
-                        (confirm and "success" or "failure"))
+        if success:
+            self.assertTrue(confirm, "Confirmation of record creation not received.\nRecord - %s" % data)
+        else:
+            self.assertFalse(confirm, "Unexpected confirmation of record creation received.\nRecord - %s" % data)
 
+        # Database Checks
         result["after"] = self.getRows(table, id_data, dbcallback)
-        successMsg = "Records added to database: %s" %id_data
-        failMsg = "Records not added to database %s" %id_data
+        successMsg = "Records added to database: %s" % id_data
+        failMsg = "Records not added to database %s" % id_data
         if success:
             self.assertTrue((len(result["after"]) - len(result["before"])) == 1,
                             failMsg)
@@ -661,7 +642,7 @@ class SeleniumUnitTest(Web2UnitTest):
         """
         el_value_list = el_value.split()
         # Remove all words of length = 1 such as hyphens.
-        el_value_list = filter(lambda x : len(x) > 1 , el_value_list)
+        el_value_list = filter(lambda x: len(x) > 1, el_value_list)
         # Initialise max_len as 0 and matchec_option = None.
         max_len = 0
         matched_option = None
@@ -670,7 +651,7 @@ class SeleniumUnitTest(Web2UnitTest):
             text = option.text
             text_list = text.split()
             # Remove all words of length = 1 such as hyphens.
-            text_list = filter(lambda x : len(x) > 1 , text_list)
+            text_list = filter(lambda x: len(x) > 1, text_list)
             # Find intersection of el_value_list and text_list
             matched_list = list(set(el_value_list).intersection(text_list))
             # matched_len is number of matching words for the current option.
@@ -728,18 +709,18 @@ class SeleniumUnitTest(Web2UnitTest):
         # Select the item to make a report of:
         rows_select = browser.find_element_by_id("report-rows")
         if not self.select_option(rows_select, report_of):
-            raise self.InvalidReportOrGroupException()
+            raise self.InvalidReportOrGroupException("%s not found in 'Report of' option" % report_of)
 
         # Select the value to group by:
         cols_select = browser.find_element_by_id("report-cols")
         if not self.select_option(cols_select, grouped_by):
-            raise self.InvalidReportOrGroupException()
+            raise self.InvalidReportOrGroupException("%s not found in 'Grouped By' option" % grouped_by)
 
         # Select the value to base the report on
         if report_fact:
             fact_select = browser.find_element_by_id("report-fact")
             if not self.select_option(fact_select, report_fact):
-                raise self.InvalidReportOrGroupException()
+                raise self.InvalidReportOrGroupException("%s not found in 'Value' option" % report_fact)
 
         submit_btn = browser.find_element_by_xpath("//input[@type='submit']")
         submit_btn.click()
@@ -750,7 +731,7 @@ class SeleniumUnitTest(Web2UnitTest):
         for check in args:
             row = self.dt_find(check[0])
             if not row:
-                raise self.InvalidReportOrGroupException()
+                raise self.InvalidReportOrGroupException("Row with %s could not be found in the datatable" % check[0])
             else:
                 row = row[0][0]
             col = 1
@@ -764,7 +745,7 @@ class SeleniumUnitTest(Web2UnitTest):
                         e = browser.find_element_by_xpath(
                             ".//*[@id='datatable']/thead/tr[2]/th[{0}]".format(col))
                     except NoSuchElementException:
-                        raise self.InvalidReportOrGroupException()
+                        raise self.InvalidReportOrGroupException("Column with %s could not be found in the datatable." % check[1])
 
             import collections
             if isinstance(check[2], collections.Iterable):
@@ -781,7 +762,7 @@ class SeleniumUnitTest(Web2UnitTest):
 
         if 'row_count' in kwargs:
             self.assertEqual(kwargs['row_count'], len(browser.find_elements_by_xpath(
-                "//table[@id='datatable']/tbody/tr")))
+                "//table[@id='datatable']/tbody/tr")), "Row Count given and calculated do not match.")
 
     # -------------------------------------------------------------------------
     def fill_fields(self, fields):
@@ -950,7 +931,7 @@ class SeleniumUnitTest(Web2UnitTest):
         # Find the Longest Word Trimmed Match that matches with item_repr
         option = self.find_max_match(options_list, item_repr)
         if option is None:
-            raise NoSuchElementException("Option could not be found")
+            raise NoSuchElementException("%s option could not be found in %s" % (item_repr, el_id))
         option.click()
         raw_value = int(option.get_attribute("value"))
         
@@ -976,7 +957,7 @@ class SeleniumUnitTest(Web2UnitTest):
             # Find the Longest Word Trimmed Match that matches with item_repr
             option = self.find_max_match(options_list, item_repr)
             if option is None:
-                raise NoSuchElementException("Option could not be found")
+                raise NoSuchElementException("%s option could not be found in %s" % (item_repr, el_id))
             option.click()
             raw_value = int(option.get_attribute("value"))
         elif field[0] == "L":

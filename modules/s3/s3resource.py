@@ -559,21 +559,18 @@ class S3Resource(object):
         """
 
         # Init
-
         db = current.db
         table = self.table
         tablename = table._tablename
         pkey = str(table._id)
 
         # Get the query and filters
-
         query = self.get_query()
         vfltr = self.get_filter()
         rfilter = self.rfilter
         distinct = rfilter.distinct | distinct
 
         # Fields to select
-
         if fields is None:
             fields = [f.name for f in self.readable_fields()]
         else:
@@ -585,16 +582,13 @@ class S3Resource(object):
                 fields.append(f)
 
         # Resolve all field selectors
-
         lfields, joins, ljoins, d = self.resolve_selectors(fields)
 
         # Distinct
-
         distinct = distinct | d
         attributes = {"distinct": distinct}
 
         # Collect the left joins
-
         left_joins = {}
 
         # Left joins from caller
@@ -639,7 +633,6 @@ class S3Resource(object):
             limitby = None
 
         # Determine the fields for the SELECT
-
         qfields = {}
         if groupby:
             if isinstance(groupby, (list, tuple)):
@@ -669,7 +662,6 @@ class S3Resource(object):
                     qfields[str(pk)] = pk
 
         # Handle ORDERBY from caller
-
         if orderby is not None:
             attributes["orderby"] = orderby
 
@@ -738,14 +730,12 @@ class S3Resource(object):
                     filter_joins[tname] = left_joins[tname]
 
         # Handler GROUPBY from caller
-
         if groupby:
             attributes["distinct"] = False
             attributes["groupby"] = groupby
             attributes["orderby"] = orderby
 
         # Sort the left joins and add to attributes
-
         if left_joins:
             try:
                 left_joins = self.sortleft(left_joins.values())
@@ -760,17 +750,14 @@ class S3Resource(object):
                 filter_joins = filter_joins.values()
 
         # Temporarily deactivate (mandatory) virtual fields
-
         if not virtual:
             vf = table.virtualfields
             osetattr(table, "virtualfields", [])
 
         # Count the rows and get the IDs
-
         numrows = ids = None
         if vfltr is None:
             # No virtual filter
-
             if getids or left_joins:
                 # Find the IDs for all records which match the query,
                 # ordered by the ORDERBY fields. That way, we know:
@@ -823,7 +810,6 @@ class S3Resource(object):
             numrows = ids = None
 
         # Retrieve the rows
-
         hasids = pkey in qfields
         if numrows != 0:
             attributes["cacheable"] = cacheable
@@ -839,14 +825,11 @@ class S3Resource(object):
             rows = []
 
         # Restore virtual fields
-
         if not virtual:
             osetattr(table, "virtualfields", vf)
 
         # Apply virtual fields filter
-
         if rows and vfltr is not None:
-
             if count:
                 rows = rfilter(rows)
                 numrows = len(rows)
@@ -864,7 +847,6 @@ class S3Resource(object):
                 numrows = len(ids)
 
         # Result
-
         if not getids:
             ids = []
         if count or getids:
@@ -3604,7 +3586,7 @@ class S3Resource(object):
 
         # Commit the import job
         auth.rollback = not commit_job
-        import_job.commit(ignore_errors=ignore_errors)
+        success = import_job.commit(ignore_errors=ignore_errors)
         auth.rollback = False
         self.error = import_job.error
         self.import_count += import_job.count
@@ -3619,8 +3601,15 @@ class S3Resource(object):
             if ignore_errors:
                 self.error = "%s - invalid items ignored" % self.error
             self.error_tree = import_job.error_tree
-        if not commit_job:
+        elif not success:
+            # Oops - how could this happen? We can have an error
+            # without failure, but not a failure without error!
+            # If we ever get here, then there's a bug without a
+            # chance to recover - hence let it crash:
+            raise RuntimeError("Import failed without error message")
+        if not success or not commit_job:
             db.rollback()
+        if not commit_job:
             import_job.store()
             return import_job
         else:
