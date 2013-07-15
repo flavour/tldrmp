@@ -35,6 +35,7 @@
 __all__ = ["S3ACLWidget",
            "S3AddObjectWidget",
            "S3AddPersonWidget",
+           "S3AddPersonWidget2",
            "S3AutocompleteWidget",
            "S3AutocompleteOrAddWidget",
            "S3BooleanWidget",
@@ -521,9 +522,9 @@ class S3AddPersonWidget(FormWidget):
         if required:
             s3.has_required = True
 
-        if current.request.env.request_method == "POST" and not value:
+        if request.env.request_method == "POST" and not value:
             # Read the POST vars:
-            post_vars = current.request.post_vars
+            post_vars = request.post_vars
             values = Storage(ptable._filter_fields(post_vars))
             values["email"] = post_vars["email"]
             values["mobile_phone"] = post_vars["mobile_phone"]
@@ -586,6 +587,13 @@ class S3AddPersonWidget(FormWidget):
                      _class="box_bottom")
 
         # JS
+        if s3.debug:
+            script = "/%s/static/scripts/S3/s3.select_person.js" % appname
+        else:
+            script = "/%s/static/scripts/S3/s3.select_person.min.js" % appname
+        scripts = s3.scripts
+        if script not in scripts:
+            scripts.append(script)
         s3.jquery_ready.append('''S3.addPersonWidget()''')
 
         # Overall layout of components
@@ -593,6 +601,189 @@ class S3AddPersonWidget(FormWidget):
                        ac_row,
                        table,
                        divider)
+
+# =============================================================================
+class S3AddPersonWidget2(FormWidget):
+    """
+        Renders a person_id field as a Create Person form,
+        with an embedded Autocomplete to select existing people.
+
+        It relies on JS code in static/S3/s3.add_person.js
+    """
+
+    def __init__(self,
+                 controller = None,
+                 select_existing = None):
+
+        # Controller to retrieve the person record
+        self.controller = controller
+        if select_existing is not None:
+            self.select_existing = select_existing
+        else:
+            self.select_existing = current.deployment_settings.get_pr_select_existing()
+
+    def __call__(self, field, value, **attributes):
+
+        T = current.T
+        request = current.request
+        appname = request.application
+        s3 = current.response.s3
+        settings = current.deployment_settings
+
+        formstyle = s3.crud.formstyle
+
+        default = dict(_type = "text",
+                       value = (value != None and str(value)) or "")
+        attr = StringWidget._attributes(field, default, **attributes)
+        attr["_class"] = "hide"
+
+        # Main Input
+        fieldname = str(field)
+        if "_id" in attr:
+            real_input = attr["_id"]
+        else:
+            real_input = fieldname.replace(".", "_")
+
+        if self.controller is None:
+            controller = request.controller
+        else:
+            controller = self.controller
+
+        # Embedded Form
+        s3db = current.s3db
+        ptable = s3db.pr_person
+        ctable = s3db.pr_contact
+        fields = [#ptable.first_name,
+                  #ptable.middle_name,
+                  #ptable.last_name,
+                  ]
+        if settings.get_pr_request_dob():
+            fields.append(ptable.date_of_birth)
+        if settings.get_pr_request_gender():
+            fields.append(ptable.gender)
+
+        if controller == "hrm":
+            emailRequired = settings.get_hrm_email_required()
+        elif controller == "vol":
+            fields.append(s3db.pr_person_details.occupation)
+            emailRequired = settings.get_hrm_email_required()
+        else:
+            emailRequired = False
+        if emailRequired:
+            validator = IS_EMAIL()
+        else:
+            validator = IS_NULL_OR(IS_EMAIL())
+
+        fields.extend([Field("email",
+                             notnull=emailRequired,
+                             requires=validator,
+                             label=T("Email Address")),
+                       Field("mobile_phone",
+                             label=T("Mobile Phone Number"),
+                             # requires=None to work around a web2py bug
+                             requires=None)
+                       ])
+
+        labels, required = s3_mark_required(fields)
+        if required:
+            s3.has_required = True
+
+        if request.env.request_method == "POST" and not value:
+            # Read the POST vars:
+            post_vars = request.post_vars
+            values = Storage(ptable._filter_fields(post_vars))
+            values["email"] = post_vars["email"]
+            values["mobile_phone"] = post_vars["mobile_phone"]
+
+            # Use the validators to convert the POST vars into
+            # internal format (not validating here):
+            data = Storage()
+            for f in fields:
+                fname = f.name
+                if fname in values:
+                    v, error = values[fname], None
+                    requires = f.requires
+                    if requires:
+                        if not isinstance(requires, (list, tuple)):
+                            requires = [requires]
+                        for validator in requires:
+                            v, error = validator(v)
+                            if error:
+                                break
+                    if not error:
+                        data[fname] = v
+
+            record_id = 0
+        else:
+            data = None
+            record_id = value
+
+        # Output
+        rows = DIV()
+
+        # Fields
+        # (id, label, widget)
+        fields = [()
+                  ]
+        
+        # Name field
+        # - can search for an existing person
+        # - can create a new person
+        # - multiple names get assigned to first, middle, last
+        id = "%s_name" % fieldname
+        label = T("Name")
+        widget = INPUT(_value="",
+                       _id=id,
+                       )
+        comment = T("Select this Person")
+        throbber = DIV(_id="%s__throbber" % id,
+                       _class="throbber hide"
+                       )
+        if formstyle == "bootstrap":
+            # We would like to hide the whole original control-group & append rows, but that can't be done directly within a Widget
+            # -> Elements moved via JS after page load
+            label = LABEL("%s:" % label, _class="control-label",
+                                         _for=id)
+            # @ToDo: Mark Required
+            widget.add_class("input-xlarge")
+            # Currently unused, so remove if this remains so
+            #from gluon.html import BUTTON
+            #comment = BUTTON(comment,
+            #                 _class="btn btn-primary hide",
+            #                 _id="%s__button" % id
+            #                 )
+            #_controls = DIV(widget, throbber, comment, _class="controls")
+            _controls = DIV(widget, throbber, _class="controls")
+            row = DIV(label, _controls, _class="control-group hide", _id="%s__row" % id)
+        elif callable(formstyle):
+            # @ToDo: Test
+            row = formstyle(id, label, widget, comment, hidden=hidden)
+        else:
+            # Unsupported
+            raise
+        rows.append(row)
+        
+        # Divider
+        divider = DIV(DIV(_class="subheading"),
+                      DIV(),
+                      _class="box_bottom")
+        rows.append(divider)
+
+        # JS
+        if s3.debug:
+            script = "/%s/static/scripts/S3/s3.add_person.js" % appname
+        else:
+            script = "/%s/static/scripts/S3/s3.add_person.min.js" % appname
+        scripts = s3.scripts
+        if script not in scripts:
+            scripts.append(script)
+        s3.jquery_ready.append('''S3.addPersonWidget('%s')''' % fieldname)
+
+        # Overall layout of components
+        return TAG[""](DIV(INPUT(**attr), # Real input, hidden
+                           _classs="hidden"),
+                       rows,
+                       )
 
 # =============================================================================
 class S3AutocompleteWidget(FormWidget):
@@ -3183,7 +3374,6 @@ class S3LocationSelectorWidget2(FormWidget):
         * Doesn't allow creation of new Lx Locations
         * Doesn't allow selection of existing Locations
         * Doesn't support manual entry of LatLons
-        * Doesn't support creation of Polygons
         * Doesn't support Geocoding
 
         May evolve into a replacement in-time if missing features get migrated here.
@@ -3202,19 +3392,29 @@ class S3LocationSelectorWidget2(FormWidget):
 
     def __init__(self,
                  levels = ["L1", "L2", "L3"],   # Which levels of the hierarchy to expose?
+                 hide_lx = True,                # Whether to hide lower Lx fields until higher level selected
+                 reverse_lx = False,            # Whether to show Lx fields in the order usually used by Street Addresses
                  show_address = False,          # Whether to show a field for Street Address
+                 show_postcode = False,         # Whether to show a field for Postcode
                  show_map = True,               # Whether to show a Map to select specific points
+                 polygons = False,              # Whether the Map uses a Polygon draw tool instead of Point
                  ):
 
         self.levels = levels
+        self.hide_lx = hide_lx
+        self.reverse_lx = reverse_lx
         self.show_address = show_address
+        self.show_postcode = show_postcode
         self.show_map = show_map
+        self.polygons = polygons
 
     def __call__(self, field, value, **attributes):
 
         levels = self.levels
         show_address = self.show_address
+        show_postcode = self.show_postcode
         show_map = self.show_map
+        polygons = self.polygons
 
         T = current.T
         db = current.db
@@ -3263,6 +3463,10 @@ class S3LocationSelectorWidget2(FormWidget):
             # @ToDo: Lookup Labels dynamically when L0 changes
             raise NotImplementedError
 
+        # @ToDo: Which geocoder(s) should we use?
+        # Lookup country in gis_config
+        geocoder = False
+
         values = dict(L0 = default_L0,
                       L1 = 0,
                       L2 = 0,
@@ -3272,11 +3476,13 @@ class S3LocationSelectorWidget2(FormWidget):
                       specific = 0,
                       )
         parent = ""
-        # Keep the selected Lat/Lon/Address during validation errors
+        # Keep the selected Lat/Lon/Address/Postcode during validation errors
         post_vars = request.post_vars
         lat = post_vars.lat
         lon = post_vars.lon
+        wkt = post_vars.wkt
         address = post_vars.address
+        postcode = post_vars.postcode
         if value == "dummy":
             # Validation Error when Creating a specific point
             # Revert to Parent
@@ -3290,9 +3496,9 @@ class S3LocationSelectorWidget2(FormWidget):
                                                    gtable.inherited,
                                                    gtable.lat,
                                                    gtable.lon,
-                                                   # @ToDo: Polygon support
-                                                   #gtable.wkt,
+                                                   gtable.wkt,
                                                    gtable.addr_street,
+                                                   gtable.addr_postcode,
                                                    limitby=(0, 1)).first()
             if not record:
                 raise ValueError
@@ -3310,7 +3516,9 @@ class S3LocationSelectorWidget2(FormWidget):
                 if not record.inherited:
                     lat = record.lat
                     lon = record.lon
+                    wkt = record.wkt if polygons else ""
                 address = record.addr_street
+                postcode = record.addr_postcode
                 values["specific"] = value
                 if len(path) < (len(levels) + 1):
                     # We don't have a full path
@@ -3342,18 +3550,40 @@ class S3LocationSelectorWidget2(FormWidget):
                              value=parent,
                              )
         if show_map:
-            # Lat/Lon INPUT fields, will be hidden
-            lat_input = INPUT(_name="lat",
-                              _id="%s_lat" % fieldname,
-                              value=lat,
-                              )
-            lon_input = INPUT(_name="lon",
-                              _id="%s_lon" % fieldname,
-                              value=lon,
-                              )
+            if polygons:
+                # WKT INPUT field, will be hidden
+                wkt_input = INPUT(_name="wkt",
+                                  _id="%s_wkt" % fieldname,
+                                  value=wkt,
+                                  )
+                lat_input = ""
+                lon_input = ""
+            else:
+                # Lat/Lon INPUT fields, will be hidden
+                lat_input = INPUT(_name="lat",
+                                  _id="%s_lat" % fieldname,
+                                  value=lat,
+                                  )
+                lon_input = INPUT(_name="lon",
+                                  _id="%s_lon" % fieldname,
+                                  value=lon,
+                                  )
+                wkt_input = ""
         else:
             lat_input = ""
             lon_input = ""
+            wkt_input = ""
+
+        if "L0" in levels:
+            L0_input = ""
+        else:
+            # Have a hidden L0 input
+            # - used for Geocoder
+            L0_input = INPUT(_name="L0",
+                             _id="%s_L0" % fieldname,
+                             value=default_L0,
+                             )
+        Lx_inputs = TAG[""](L0_input)
 
         if show_address:
             # Street Address
@@ -3375,7 +3605,7 @@ class S3LocationSelectorWidget2(FormWidget):
                 _class = "control-group hide"
                 address_row = DIV(label, _controls, _class=_class, _id="%s__row" % id)
             elif callable(formstyle):
-                # @ToDo
+                # @ToDo: Test
                 comment = ""
                 address_row = formstyle(id, label, widget, comment, hidden=True)
             else:
@@ -3383,6 +3613,35 @@ class S3LocationSelectorWidget2(FormWidget):
                 raise
         else:
             address_row = ""
+
+        if show_postcode:
+            # Postcode
+            id = "%s_postcode" % fieldname
+            label = settings.get_ui_label_postcode()
+            widget = INPUT(_name="postcode",
+                           _id=id,
+                           value=postcode,
+                           )
+            hidden = not postcode
+            if formstyle == "bootstrap":
+                # We would like to hide the whole original control-group & append rows, but that can't be done directly within a Widget
+                # -> Elements moved via JS after page load
+                label = LABEL("%s:" % label, _class="control-label",
+                                             _for=id)
+                widget.add_class("input-xlarge")
+                _controls = DIV(widget, _class="controls")
+                # Will unhide if dropdowns open accordingly
+                _class = "control-group hide"
+                postcode_row = DIV(label, _controls, _class=_class, _id="%s__row" % id)
+            elif callable(formstyle):
+                # @ToDo: Test
+                comment = ""
+                postcode_row = formstyle(id, label, widget, comment, hidden=True)
+            else:
+                # Unsupported
+                raise
+        else:
+            postcode_row = ""
 
         # Hierarchy Labels
         htable = s3db.gis_hierarchy
@@ -3503,7 +3762,11 @@ class S3LocationSelectorWidget2(FormWidget):
 
         args = [str(arg) for arg in args]
         args = ''','''.join(args)
-        script = '''S3.gis.locationselector('%s',%s)''' % (fieldname, args)
+        script = '''S3.gis.locationselector('%s',%s,%s,%s)''' % \
+                    (fieldname,
+                     "true" if self.hide_lx else "false",
+                     "true" if self.reverse_lx else "false",
+                     args)
         if show_map and use_callback:
             callback = script
         elif not location_selector_loaded:
@@ -3526,8 +3789,10 @@ class S3LocationSelectorWidget2(FormWidget):
                                collapsed = True,
                                height = 320,
                                width = 480,
-                               add_feature = True,
-                               add_feature_active = True,
+                               add_feature = not polygons,
+                               add_feature_active = not polygons,
+                               add_polygon = polygons,
+                               add_polygon_active = polygons,
                                # Hide controls from toolbar
                                nav = False,
                                area = False,
@@ -3547,15 +3812,30 @@ class S3LocationSelectorWidget2(FormWidget):
                                _id = row_id,
                                _class = "control-group hide",
                                )
+                if geocoder:
+                    geocode_button = BUTTON(T("Geocode"),
+                                            _id="%s_geocode" % fieldname,
+                                            _class="hide",
+                                            )
+                else:
+                    geocode_button = None
             else:
-                # @ToDo: Icon in CSS, testing
+                # @ToDo: Icon in default CSS
+                # @ToDo: Test
                 label = LABEL(I(_class="icon-map",
                                 _id=icon_id,
                                 ))
                 widget = ""
                 comment = ""
                 map_icon = formstyle(row_id, label, widget, comment)
-            map = TAG[""](map, map_icon)
+                if geocoder:
+                    geocode_button = BUTTON(T("Geocode"),
+                                            _id="%s_geocode" % fieldname,
+                                            _class="hide",
+                                            )
+                else:
+                    geocode_button = None
+            map = TAG[""](map, map_icon, geocode_button)
         else:
             map = ""
 
@@ -3564,12 +3844,15 @@ class S3LocationSelectorWidget2(FormWidget):
 
         # The overall layout of the components
         return TAG[""](DIV(INPUT(**attr), # Real input, hidden
+                           Lx_inputs,
                            lat_input,
                            lon_input,
+                           wkt_input,
                            parent_input,
                            _class="hide"),
                        Lx_rows,
                        address_row,
+                       postcode_row,
                        map,
                        requires=field.requires
                        )

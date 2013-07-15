@@ -31,8 +31,6 @@
 
 __all__ = ["GIS",
            "S3Map",
-           "GoogleGeocoder",
-           "YahooGeocoder",
            "S3ExportPOI",
            "S3ImportPOI",
            ]
@@ -1978,9 +1976,9 @@ class GIS(object):
                 if pkey not in fields:
                     fields.insert(0, pkey)
 
-                data = resource.fast_select(fields,
-                                            limit=None,
-                                            represent=True)
+                data = resource.select(fields,
+                                       limit=None,
+                                       represent=True)
 
                 rfields = data["rfields"]
                 popup_cols = []
@@ -6137,12 +6135,12 @@ def addFeatureResources(feature_resources):
                                       limitby=(0, 1)).first()
             if flayer.use_site:
                 maxdepth = 1
-                references = "site_id,location_id&show_ids=true"
+                show_ids = "&show_ids=true"
             else:
                 maxdepth = 0
-                references = "location_id"
-            url = "%s.geojson?layer=%i&components=None&maxdepth=%s&references=%s" % \
-                (URL(flayer.controller, flayer.function), flayer.id, maxdepth, references)
+                show_ids = ""
+            url = "%s.geojson?layer=%i&components=None&maxdepth=%s%s" % \
+                (URL(flayer.controller, flayer.function), flayer.id, maxdepth, show_ids)
             # Use specified filter or fallback to the one in the layer
             filter = layer.get("filter", flayer.filter)
             if filter:
@@ -6167,20 +6165,15 @@ def addFeatureResources(feature_resources):
             # Optimise the query & tell back-end not to add the type to the tooltips
             if "location_id" in table.fields:
                 maxdepth = 0
-                references = "location_id"
+                show_ids = ""
             elif "site_id" in table.fields:
                 maxdepth = 1
-                references = "site_id,location_id&show_ids=true"
+                show_ids = "&show_ids=true"
             else:
                 # Not much we can do!
                 continue
-            # @ToDo: layer["namefield"]
-            if "name" in table.fields:
-                title = "name"
-            else:
-                title = "id"
-            options = "components=None&maxdepth=%s&references=%s&fields=%s&label_off=1" % \
-                        (maxdepth, references, title)
+            options = "components=None&maxdepth=%s%s&label_off=1" % \
+                        (maxdepth, show_ids)
             if "?" in url:
                 url = "%s&%s" % (url, options)
             else:
@@ -6708,12 +6701,12 @@ class LayerFeature(Layer):
                 return
             if self.use_site:
                 maxdepth = 1
-                references = "site_id,location_id&show_ids=true"
+                show_ids = "&show_ids=true"
             else:
                 maxdepth = 0
-                references = "location_id"
-            url = "%s.geojson?layer=%i&components=None&maxdepth=%s&references=%s" % \
-                (URL(self.controller, self.function), self.id, maxdepth, references)
+                show_ids = ""
+            url = "%s.geojson?layer=%i&components=None&maxdepth=%s%s" % \
+                (URL(self.controller, self.function), self.id, maxdepth, show_ids)
             if self.filter:
                 url = "%s&%s" % (url, self.filter)
             if self.trackable:
@@ -7271,7 +7264,7 @@ class LayerTheme(Layer):
     # -------------------------------------------------------------------------
     class SubLayer(Layer.SubLayer):
         def as_dict(self):
-            url = "%s.geojson?theme_data.layer_theme_id=%i&polygons=1&maxdepth=0&references=location_id&fields=value" % \
+            url = "%s.geojson?theme_data.layer_theme_id=%i&polygons=1&maxdepth=0" % \
                 (URL(c="gis", f="theme_data"), self.id)
 
             # Mandatory attributes
@@ -7527,7 +7520,7 @@ class S3Map(S3Method):
                                            # URL to update the Filter Widget Status
                                            ajaxurl=r.url(method="filter",
                                                          vars={},
-                                                         representation="json"),
+                                                         representation="options"),
                                            _class="filter-form",
                                            _id="%s-filter-form" % widget_id,
                                            )
@@ -7552,12 +7545,23 @@ class S3Map(S3Method):
             r.error(501, r.ERROR.BAD_FORMAT)
 
     # -------------------------------------------------------------------------
-    def widget(self, r, method="map", widget_id=None, callback=None, **attr):
+    def widget(self,
+               r,
+               method="map",
+               widget_id=None,
+               visible=True,
+               callback=None,
+               **attr):
         """
             Render a Map widget suitable for use in an S3Filter-based page
             such as S3Summary
             
-            @param: callback. None by default in case DIV is hidden
+            @param r: the S3Request
+            @param method: the widget method
+            @param widget_id: the widget ID
+            @param callback: None by default in case DIV is hidden
+            @param visible: whether the widget is initially visible
+            @param attr: controller attributes
         """
 
         if not widget_id:
@@ -7600,69 +7604,6 @@ class S3Map(S3Method):
                            callback = callback,
                            )
         return map
-
-# =============================================================================
-class Geocoder(object):
-    """
-        Base class for all Geocoders
-    """
-
-    def __init__(self):
-        " Initializes the page content object "
-        pass
-
-    # -------------------------------------------------------------------------
-    @staticmethod
-    def get_api_key(type):
-        " Acquire API key from the database "
-        pass
-
-# -----------------------------------------------------------------------------
-class GoogleGeocoder(Geocoder):
-    """
-        Google Geocoder module
-        http://code.google.com/apis/maps/documentation/javascript/v2/reference.html#GGeoStatusCode
-        Should convert this to be a thin wrapper for modules.geopy.geocoders.google
-    """
-
-    def __init__(self, location):
-        " Initialise parent class & make any necessary modifications "
-        Geocoder.__init__(self)
-        api_key = current.deployment_settings.get_gis_api_google()
-        params = {"q": location, "key": api_key}
-        self.url = "http://maps.google.com/maps/geo?%s" % urllib.urlencode(params)
-
-    # -------------------------------------------------------------------------
-    def get_json(self):
-        " Returns the output in JSON format "
-
-        from gluon.tools import fetch
-        url = self.url
-        page = fetch(url)
-        return page
-
-# -----------------------------------------------------------------------------
-class YahooGeocoder(Geocoder):
-    """
-        Yahoo Geocoder module
-        Should convert this to be a thin wrapper for modules.geopy.geocoders.`
-    """
-
-    def __init__(self, location):
-        " Initialise parent class & make any necessary modifications "
-        Geocoder.__init__(self)
-        api_key = current.deployment_settings.get_gis_api_yahoo()
-        params = {"location": location, "appid": api_key}
-        self.url = "http://local.yahooapis.com/MapsService/V1/geocode?%s" % urllib.urlencode(params)
-
-    # -------------------------------------------------------------------------
-    def get_xml(self):
-        " Return the output in XML format "
-
-        from gluon.tools import fetch
-        url = self.url
-        page = fetch(url)
-        return page
 
 # =============================================================================
 class S3ExportPOI(S3Method):

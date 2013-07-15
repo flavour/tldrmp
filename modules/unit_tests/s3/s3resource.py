@@ -12,6 +12,7 @@ from gluon import *
 from gluon.storage import Storage
 from gluon.dal import Row
 from s3.s3resource import *
+from s3.s3fields import s3_meta_fields
 
 # =============================================================================
 class ComponentJoinConstructionTests(unittest.TestCase):
@@ -590,7 +591,7 @@ class ResourceFilterQueryTests(unittest.TestCase):
         self.assertEqual(rfilter.joins, Storage())
         self.assertEqual(rfilter.left, Storage())
         # Try to select rows
-        rows = component.fast_select(None, limit=1, as_rows=True)
+        rows = component.select(None, limit=1, as_rows=True)
 
     # -------------------------------------------------------------------------
     @unittest.skipIf(not current.deployment_settings.has_module("hrm"), "hrm module disabled")
@@ -632,7 +633,7 @@ class ResourceFilterQueryTests(unittest.TestCase):
         self.assertEqual(rfilter.joins, Storage())
         self.assertEqual(rfilter.left, Storage())
         # Try to select rows
-        rows = component.fast_select(None, limit=1, as_rows=True)
+        rows = component.select(None, limit=1, as_rows=True)
 
     # -------------------------------------------------------------------------
     @unittest.skipIf(not current.deployment_settings.has_module("project"), "project module disabled")
@@ -666,7 +667,7 @@ class ResourceFilterQueryTests(unittest.TestCase):
         self.assertEqual(rfilter.joins, Storage())
         self.assertEqual(rfilter.left, Storage())
         # Try to select rows
-        rows = component.fast_select(None, limit=1, as_rows=True)
+        rows = component.select(None, limit=1, as_rows=True)
 
     # -------------------------------------------------------------------------
     @unittest.skipIf(not current.deployment_settings.has_module("hrm"), "hrm module disabled")
@@ -703,19 +704,19 @@ class ResourceFilterQueryTests(unittest.TestCase):
 
         FS = S3FieldSelector
 
-        resource = current.s3db.resource("org_facility")
-        org_facility = resource.table
+        resource = current.s3db.resource("req_req_skill")
+        req_req_skill = resource.table
         
-        q = FS("facility_type_id").contains([1, 2])
+        q = FS("skill_id").contains([1, 2])
         query = q.query(resource)
-        expected = ((org_facility.facility_type_id.like("%|1|%")) &
-                    (org_facility.facility_type_id.like("%|2|%")))
+        expected = ((req_req_skill.skill_id.like("%|1|%")) &
+                    (req_req_skill.skill_id.like("%|2|%")))
         self.assertEqual(str(query), str(expected))
         
-        q = FS("facility_type_id").anyof([1, 2])
+        q = FS("skill_id").anyof([1, 2])
         query = q.query(resource)
-        expected = ((org_facility.facility_type_id.like("%|1|%")) |
-                    (org_facility.facility_type_id.like("%|2|%")))
+        expected = ((req_req_skill.skill_id.like("%|1|%")) |
+                    (req_req_skill.skill_id.like("%|2|%")))
         self.assertEqual(str(query), str(expected))
 
     # -------------------------------------------------------------------------
@@ -805,7 +806,7 @@ class ResourceContextFilterTests(unittest.TestCase):
                                       "CONTEXT1OFFICE2",
                                       "CONTEXT2OFFICE1"],
                                  context=True)
-        data = resource.fast_select(["name"], limit=None)
+        data = resource.select(["name"], limit=None)
         items = data["rows"]
         self.assertEqual(len(items), 3)
         names = [item.values()[0] for item in items]
@@ -818,7 +819,7 @@ class ResourceContextFilterTests(unittest.TestCase):
                                       "CONTEXT2PERSON",
                                       "CONTEXT12PERSON"],
                                  context=True)
-        data = resource.fast_select(["first_name"], limit=None)
+        data = resource.select(["first_name"], limit=None)
         items = data["rows"]
         self.assertEqual(len(items), 3)
         names = [item.values()[0] for item in items]
@@ -834,7 +835,7 @@ class ResourceContextFilterTests(unittest.TestCase):
                                       "CONTEXT1OFFICE2",
                                       "CONTEXT2OFFICE1"],
                                  context=True)
-        data = resource.fast_select(["name"], limit=None)
+        data = resource.select(["name"], limit=None)
         items = data["rows"]
         self.assertEqual(len(items), 2)
         names = [item.values()[0] for item in items]
@@ -847,7 +848,7 @@ class ResourceContextFilterTests(unittest.TestCase):
                                       "CONTEXT2PERSON",
                                       "CONTEXT12PERSON"],
                                  context=True)
-        data = resource.fast_select(["first_name"], limit=None)
+        data = resource.select(["first_name"], limit=None)
         items = data["rows"]
         self.assertEqual(len(items), 2)
         names = [item.values()[0] for item in items]
@@ -863,7 +864,7 @@ class ResourceContextFilterTests(unittest.TestCase):
                                       "CONTEXT1OFFICE2",
                                       "CONTEXT2OFFICE1"],
                                  context=True)
-        data = resource.fast_select(["name"], limit=None)
+        data = resource.select(["name"], limit=None)
         items = data["rows"]
         self.assertEqual(len(items), 1)
         names = [item.values()[0] for item in items]
@@ -876,7 +877,7 @@ class ResourceContextFilterTests(unittest.TestCase):
                                       "CONTEXT2PERSON",
                                       "CONTEXT12PERSON"],
                                  context=True)
-        data = resource.fast_select(["first_name"], limit=None)
+        data = resource.select(["first_name"], limit=None)
         items = data["rows"]
         self.assertEqual(len(items), 2)
         names = [item.values()[0] for item in items]
@@ -1407,8 +1408,8 @@ class ResourceDataAccessTests(unittest.TestCase):
         resource = s3db.resource("org_organisation",
                                  uid="DATESTORG")
 
-        rows = resource.fast_select(["name", "office.name"],
-                                    limit=1, as_rows=True)
+        rows = resource.select(["name", "office.name"],
+                               limit=1, as_rows=True)
         self.assertEqual(len(rows), 2)
         row = rows[0]
 
@@ -1443,7 +1444,7 @@ class ResourceDataAccessTests(unittest.TestCase):
 
     # -------------------------------------------------------------------------
     def testCollapseRows(self):
-        """ Test correct handling of ambiguous rows in extract() """
+        """ Test correct handling of ambiguous rows in select """
 
         s3db = current.s3db
 
@@ -1458,22 +1459,23 @@ class ResourceDataAccessTests(unittest.TestCase):
                                         ftable.name)
         self.assertEqual(len(rows), 2)
 
-        resource = s3db.resource("org_organisation")
+        resource = s3db.resource("org_organisation", uid="DATESTORG")
         list_fields = ["name", "office.name"]
-        lfields = resource.resolve_selectors(list_fields)[0]
-        collapsed = resource.extract(rows, lfields)
-        self.assertEqual(len(collapsed), 1)
+        
+        rows = resource.select(list_fields)["rows"]
+        self.assertEqual(len(rows), 1)
 
-        office_names = collapsed[0]["org_office.name"]
+        office_names = rows[0]["org_office.name"]
         self.assertTrue(isinstance(office_names, list))
         self.assertEqual(len(office_names), 2)
         self.assertTrue("DATestOffice1" in office_names)
         self.assertTrue("DATestOffice2" in office_names)
 
-        collapsed = resource.extract(rows, lfields, represent=True)
-        self.assertEqual(len(collapsed), 1)
+        rows = resource.select(list_fields,
+                                    represent=True)["rows"]
+        self.assertEqual(len(rows), 1)
 
-        office_names = collapsed[0]["org_office.name"]
+        office_names = rows[0]["org_office.name"]
         self.assertTrue(isinstance(office_names, basestring))
         office_names = [s.strip() for s in office_names.split(",")]
         self.assertEqual(len(office_names), 2)
@@ -1585,58 +1587,72 @@ class ResourceAxisFilterTests(unittest.TestCase):
     def testListTypeFilter(self):
         """ Test list:type axis value filtering """
 
-        s3db = current.s3db
+        tablename = "axis_filter"
+        db = current.db
+        table = db.define_table(tablename,
+                                Field("facility_type_id",
+                                      "list:reference org_facility_type"),
+                                *s3_meta_fields())
 
-        resource = s3db.resource("org_facility")
-        rfield = S3ResourceField(resource, "facility_type_id")
-        
-        resource = s3db.resource("org_facility")
-        q = (S3FieldSelector("facility_type_id").contains([1,2,3])) & \
-            (~(S3FieldSelector("facility_type_id") == 2))
-        resource.add_filter(q)
-        query = resource.get_query()
-        af = S3AxisFilter(query.as_dict(flat=True), "org_facility")
-        
-        values, ignore = af.values(rfield)
-        self.assertTrue("1" in values)
-        self.assertFalse("2" in values)
-        self.assertTrue("3" in values)
+        try:
 
-        resource = s3db.resource("org_facility")
-        q = (S3FieldSelector("facility_type_id").contains([1,2,3])) & \
-            (~(S3FieldSelector("facility_type_id") != 2))
-        resource.add_filter(q)
-        query = resource.get_query()
-        af = S3AxisFilter(query.as_dict(flat=True), "org_facility")
-        
-        values, ignore = af.values(rfield)
-        self.assertTrue("1" in values)
-        self.assertTrue("2" in values)
-        self.assertTrue("3" in values)
+            s3db = current.s3db
 
-        resource = s3db.resource("org_facility")
-        q = (S3FieldSelector("facility_type_id").contains([1,2,3])) | \
-            (~(S3FieldSelector("facility_type_id") == 2))
-        resource.add_filter(q)
-        query = resource.get_query()
-        af = S3AxisFilter(query.as_dict(flat=True), "org_facility")
+            resource = s3db.resource(tablename)
+            q = (S3FieldSelector("facility_type_id").contains([1,2,3])) & \
+                (~(S3FieldSelector("facility_type_id") == 2))
+            resource.add_filter(q)
+            query = resource.get_query()
+            af = S3AxisFilter(query.as_dict(flat=True), tablename)
 
-        values, ignore = af.values(rfield)
-        self.assertTrue("1" in values)
-        self.assertTrue("2" in values)
-        self.assertTrue("3" in values)
+            rfield = S3ResourceField(resource, "facility_type_id")
 
-        resource = s3db.resource("org_facility")
-        q = (S3FieldSelector("facility_type_id").contains([1,2,3])) | \
-            (~(S3FieldSelector("facility_type_id") != 2))
-        resource.add_filter(q)
-        query = resource.get_query()
-        af = S3AxisFilter(query.as_dict(flat=True), "org_facility")
+            values, ignore = af.values(rfield)
+            self.assertTrue("1" in values)
+            self.assertFalse("2" in values)
+            self.assertTrue("3" in values)
 
-        values, ignore = af.values(rfield)
-        self.assertTrue("1" in values)
-        self.assertTrue("2" in values)
-        self.assertTrue("3" in values)
+            resource = s3db.resource(tablename)
+            q = (S3FieldSelector("facility_type_id").contains([1,2,3])) & \
+                (~(S3FieldSelector("facility_type_id") != 2))
+            resource.add_filter(q)
+            query = resource.get_query()
+            af = S3AxisFilter(query.as_dict(flat=True), tablename)
+
+            values, ignore = af.values(rfield)
+            self.assertTrue("1" in values)
+            self.assertTrue("2" in values)
+            self.assertTrue("3" in values)
+
+            resource = s3db.resource(tablename)
+            q = (S3FieldSelector("facility_type_id").contains([1,2,3])) | \
+                (~(S3FieldSelector("facility_type_id") == 2))
+            resource.add_filter(q)
+            query = resource.get_query()
+            af = S3AxisFilter(query.as_dict(flat=True), tablename)
+
+            values, ignore = af.values(rfield)
+            self.assertTrue("1" in values)
+            self.assertTrue("2" in values)
+            self.assertTrue("3" in values)
+
+            resource = s3db.resource(tablename)
+            q = (S3FieldSelector("facility_type_id").contains([1,2,3])) | \
+                (~(S3FieldSelector("facility_type_id") != 2))
+            resource.add_filter(q)
+            query = resource.get_query()
+            af = S3AxisFilter(query.as_dict(flat=True), tablename)
+
+            values, ignore = af.values(rfield)
+            self.assertTrue("1" in values)
+            self.assertTrue("2" in values)
+            self.assertTrue("3" in values)
+            
+        finally:
+            try:
+                table.drop()
+            except:
+                pass
 
 # =============================================================================
 class ResourceDataTableFilterTests(unittest.TestCase):
@@ -2833,6 +2849,13 @@ class MergeReferenceListsTest(unittest.TestCase):
     # -------------------------------------------------------------------------
     def setUp(self):
         
+        tablename = self.tablename = "merge_list_reference"
+        db = current.db
+        table = db.define_table(tablename,
+                                Field("facility_type_id",
+                                      "list:reference org_facility_type"),
+                                *s3_meta_fields())
+                                
         xmlstr = """
 <s3xml>
     <resource name="org_facility_type" uuid="TESTMERGEFACTYPE1">
@@ -2841,16 +2864,15 @@ class MergeReferenceListsTest(unittest.TestCase):
     <resource name="org_facility_type" uuid="TESTMERGEFACTYPE2">
         <data field="name">TestMergeFacilityType2</data>
     </resource>
-    <resource name="org_facility" uuid="TESTMERGEFACILITY">
-        <data field="name">TestMergeFacility</data>
+    <resource name="%(tablename)s" uuid="TESTMERGEFACILITY">
         <reference field="facility_type_id" resource="org_facility_type"
                    uuid="[&quot;TESTMERGEFACTYPE1&quot;, &quot;TESTMERGEFACTYPE2&quot;]"/>
     </resource>
-</s3xml>"""
+</s3xml>""" % dict(tablename=tablename)
 
         current.auth.override = True
         xmltree = etree.ElementTree(etree.fromstring(xmlstr))
-        resource = current.s3db.resource("org_facility")
+        resource = current.s3db.resource(tablename)
         resource.import_xml(xmltree)
 
     # -------------------------------------------------------------------------
@@ -2861,25 +2883,29 @@ class MergeReferenceListsTest(unittest.TestCase):
         resource = s3db.resource("org_facility_type",
                                  uid=["TESTMERGEFACTYPE1", "TESTMERGEFACTYPE2"])
 
-        rows = resource.fast_select(["id"],
-                                    limit=2, as_rows=True)
+        rows = resource.select(["id"], limit=2, as_rows=True)
         self.assertEqual(len(rows), 2)
         
         original = rows[0].id
         duplicate = rows[1].id
         resource.merge(original, duplicate)
 
-        resource = s3db.resource("org_facility",
+        resource = s3db.resource(self.tablename,
                                  uid="TESTMERGEFACILITY")
-        rows = resource.fast_select(["id", "facility_type_id"],
-                                    limit=None, as_rows=True)
+        rows = resource.select(["id", "facility_type_id"],
+                               limit=None, as_rows=True)
         self.assertEqual(len(rows), 1)
         self.assertEqual(rows[0].facility_type_id, [original])
 
     # -------------------------------------------------------------------------
     def tearDown(self):
 
-        current.db.rollback()
+        db = current.db
+        db.rollback()
+        try:
+            db[self.tablename].drop()
+        except:
+            pass
         current.auth.override = False
 
 # =============================================================================
@@ -3016,8 +3042,8 @@ class ResourceLazyVirtualFieldsSupportTests(unittest.TestCase):
         resource = current.s3db.resource("pr_person")
 
         # Select raw rows
-        rows = resource.fast_select(["name", "first_name", "last_name"],
-                                    limit=1, as_rows=True)
+        rows = resource.select(["name", "first_name", "last_name"],
+                               limit=1, as_rows=True)
         row = rows[0]
         self.assertTrue("name" in row)
         self.assertTrue(callable(row["name"]))
@@ -3027,7 +3053,7 @@ class ResourceLazyVirtualFieldsSupportTests(unittest.TestCase):
         name = "%s %s" % (row.first_name, row.last_name)
 
         # Select with value extraction
-        data = resource.fast_select(["name"], limit=1)
+        data = resource.select(["name"], limit=1)
         item = data["rows"][0]
         self.assertTrue("pr_person.name" in item)
         # lazy field called
@@ -3047,8 +3073,8 @@ class ResourceLazyVirtualFieldsSupportTests(unittest.TestCase):
         query = FS("name").like("Admin%")
         resource.add_filter(query)
 
-        data = resource.fast_select(["name", "first_name", "last_name"],
-                                    limit=None)
+        data = resource.select(["name", "first_name", "last_name"],
+                               limit=None)
         rows = data["rows"]
         for item in rows:
             self.assertTrue("pr_person.name" in item)
@@ -3066,8 +3092,8 @@ class ResourceLazyVirtualFieldsSupportTests(unittest.TestCase):
         vars = Storage({"person.name__like": "Admin*"})
         resource = current.s3db.resource("pr_person", vars=vars)
 
-        data = resource.fast_select(["name", "first_name", "last_name"],
-                                    limit=None)
+        data = resource.select(["name", "first_name", "last_name"],
+                               limit=None)
         rows = data["rows"]
         for item in rows:
             self.assertTrue("pr_person.name" in item)
@@ -3549,7 +3575,7 @@ class ResourceFilteredComponentTests(unittest.TestCase):
     # -------------------------------------------------------------------------
     @unittest.skipIf(not current.deployment_settings.has_module("org"), "org module disabled")
     def testSelectWithFilteredComponent(self):
-        """ Test S3Resource.fast_select with fields in a filtered component """
+        """ Test S3Resource.select with fields in a filtered component """
     
         s3db = current.s3db
         auth = current.auth
@@ -3577,7 +3603,7 @@ class ResourceFilteredComponentTests(unittest.TestCase):
         resource.import_xml(xmltree)
 
         resource = s3db.resource("org_office_type", uid="FCTESTTYPE")
-        row = resource.fast_select(["id"], limit=1, as_rows=True)[0]
+        row = resource.select(["id"], limit=1, as_rows=True)[0]
         type_id = row.id
 
         s3db.add_component("org_office",
@@ -3588,7 +3614,7 @@ class ResourceFilteredComponentTests(unittest.TestCase):
         
         resource = current.s3db.resource("org_organisation", uid="FCTESTORG")
         fields = ["id", "name", "test.name", "test.office_type_id$name"]
-        data = resource.fast_select(fields, limit=None)
+        data = resource.select(fields, limit=None)
         result = data["rows"]
 
         self.assertEqual(len(result), 1)
