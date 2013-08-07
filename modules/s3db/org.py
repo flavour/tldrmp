@@ -886,6 +886,7 @@ class S3OrganisationGroupModel(S3Model):
     names = ["org_group",
              "org_group_membership",
              "org_group_id",
+             "org_group_represent",
              ]
 
     def model(self):
@@ -953,6 +954,7 @@ class S3OrganisationGroupModel(S3Model):
 
         # Pass names back to global scope (s3.*)
         return dict(org_group_id = group_id,
+                    org_group_represent = represent,
                     )
 
     # -------------------------------------------------------------------------
@@ -2149,7 +2151,8 @@ class S3FacilityModel(S3Model):
         tablename = "org_facility_type"
         table = define_table(tablename,
                              Field("name",
-                                   label=T("Name")),
+                                   label=T("Name"),
+                                   ),
                              s3_comments(),
                              *s3_meta_fields()
                              )
@@ -2172,10 +2175,6 @@ class S3FacilityModel(S3Model):
             msg_record_deleted=T("Facility Type deleted"),
             msg_list_empty=T("No Facility Types currently registered"))
 
-        configure(tablename,
-                  deduplicate=self.org_facility_type_duplicate,
-                  )
-
         represent = S3Represent(lookup=tablename, translate=True)
         facility_type_id = S3ReusableField("facility_type_id", table,
                                            sortby="name",
@@ -2194,6 +2193,10 @@ class S3FacilityModel(S3Model):
                                             tooltip=T("If you don't see the Type in the list, you can add a new one by clicking link 'Add Facility Type'.")),
                                            ondelete="CASCADE",
                                            )
+
+        configure(tablename,
+                  deduplicate = self.org_facility_type_duplicate,
+                  )
 
         # ---------------------------------------------------------------------
         # Facilities (generic)
@@ -2504,20 +2507,30 @@ class S3FacilityModel(S3Model):
                 item.id = duplicate.id
                 item.method = item.METHOD.UPDATE
 
-    # -------------------------------------------------------------------------
+    # ---------------------------------------------------------------------
     @staticmethod
     def org_facility_type_duplicate(item):
-        """ Import item de-duplication """
+        """
+            Deduplication of Facility Types
+        """
 
-        if item.tablename == "org_facility_type":
-            table = item.table
-            name = item.data.get("name", None)
-            query = (table.name.lower() == name.lower())
-            duplicate = current.db(query).select(table.id,
-                                                 limitby=(0, 1)).first()
-            if duplicate:
-                item.id = duplicate.id
-                item.method = item.METHOD.UPDATE
+        if item.tablename != "org_facility_type":
+            return
+
+        data = item.data
+        name = data.get("name", None)
+
+        if not name:
+            return
+
+        table = item.table
+        query = (table.name.lower() == name.lower())
+        _duplicate = current.db(query).select(table.id,
+                                              limitby=(0, 1)).first()
+        if _duplicate:
+            item.id = _duplicate.id
+            item.data.id = _duplicate.id
+            item.method = item.METHOD.UPDATE
 
     # -----------------------------------------------------------------------------
     @staticmethod

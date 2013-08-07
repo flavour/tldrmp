@@ -153,7 +153,7 @@ settings.ui.export_formats = ["xls"]
 settings.ui.update_label = "Edit"
 
 # Disabled until ready for prime-time
-settings.search.save_widget = False
+settings.search.filter_manager = False
 
 # =============================================================================
 # Module Settings
@@ -1051,7 +1051,7 @@ def render_organisations(listid, resource, rfields, record, **attr):
 # -----------------------------------------------------------------------------
 def render_posts(listid, resource, rfields, record, **attr):
     """
-        Custom dataList item renderer for CMS Posts on the Home & Updates pages
+        Custom dataList item renderer for CMS Posts on the Home & News Feed pages
 
         @param listid: the HTML ID for this list
         @param resource: the S3Resource to render
@@ -1192,7 +1192,7 @@ def render_posts(listid, resource, rfields, record, **attr):
         docs = ""
 
     if current.request.controller == "default":
-        # Mixed resource lists (Home, Updates)
+        # Mixed resource lists (Home, News Feed)
         icon = series.lower().replace(" ", "_")
         card_label = TAG[""](I(_class="icon icon-%s" % icon),
                              SPAN(" %s" % T(series),
@@ -1241,6 +1241,192 @@ def render_posts(listid, resource, rfields, record, **attr):
     return item
 
 s3.render_posts = render_posts
+
+# -----------------------------------------------------------------------------
+def render_profile_posts(listid, resource, rfields, record, **attr):
+    """
+        Custom dataList item renderer for CMS Posts on the Profile pages
+
+        @param listid: the HTML ID for this list
+        @param resource: the S3Resource to render
+        @param rfields: the S3ResourceFields to render
+        @param record: the record as dict
+        @param attr: additional HTML attributes for the item
+    """
+
+    pkey = "cms_post.id"
+
+    # Construct the item ID
+    if pkey in record:
+        record_id = record[pkey]
+        item_id = "%s-%s" % (listid, record_id)
+    else:
+        # template
+        item_id = "%s-[id]" % listid
+
+    item_class = "thumbnail"
+
+    raw = record._row
+    series = record["cms_post.series_id"]
+    date = record["cms_post.date"]
+    body = record["cms_post.body"]
+    event_id = raw["event_event_post.event_id"]
+    location = record["cms_post.location_id"]
+    location_id = raw["cms_post.location_id"]
+    location_url = URL(c="gis", f="location", args=[location_id, "profile"])
+    author = record["cms_post.created_by"]
+    author_id = raw["cms_post.created_by"]
+    organisation = record["auth_user.organisation_id"]
+    organisation_id = raw["auth_user.organisation_id"]
+    org_url = URL(c="org", f="organisation", args=[organisation_id, "profile"])
+
+    db = current.db
+    s3db = current.s3db
+    ltable = s3db.pr_person_user
+    ptable = db.pr_person
+    query = (ltable.user_id == author_id) & \
+            (ltable.pe_id == ptable.pe_id)
+    row = db(query).select(ptable.id,
+                           limitby=(0, 1)
+                           ).first()
+    if row:
+        person_url = URL(c="hrm", f="person", args=[row.id])
+    else:
+        person_url = "#"
+    author = A(author,
+               _href=person_url,
+               )
+
+    # Use Personal Avatar
+    # @ToDo: Optimise by not doing DB lookups (especially duplicate) within render, but doing these in the bulk query
+    #avatar = s3_avatar_represent(author_id,
+    #                             _class="media-object")
+    #avatar = A(avatar,
+    #           _href=person_url,
+    #           _class="pull-left",
+    #           )
+
+    # Use Organisation Logo
+    otable = db.org_organisation
+    row = db(otable.id == organisation_id).select(otable.logo,
+                                                  limitby=(0, 1)
+                                                  ).first()
+    if row and row.logo:
+        logo = URL(c="default", f="download", args=[row.logo])
+    else:
+        logo = ""
+    avatar = IMG(_src=logo,
+                 _height=50,
+                 _width=50,
+                 #_style="padding-right:5px;",
+                 _class="media-object")
+    avatar = A(avatar,
+               _href=org_url,
+               _class="pull-left",
+               )
+
+    # Edit Bar
+    permit = current.auth.s3_has_permission
+    table = db.cms_post
+    if permit("update", table, record_id=record_id):
+        T = current.T
+        vars = {"refresh": listid,
+                "record": record_id,
+                "~.series_id$name": series,
+                }
+        f = current.request.function
+        if f == "event" and event_id:
+            vars["(event)"] = event_id
+        if f == "location" and location_id:
+            vars["(location)"] = location_id
+        edit_btn = A(I(" ", _class="icon icon-edit"),
+                     _href=URL(c="cms", f="post",
+                               args=[record_id, "update.popup"],
+                               vars=vars),
+                     _class="s3_modal",
+                     _title=T("Edit %(type)s") % dict(type=T(series)),
+                     )
+    else:
+        edit_btn = ""
+    if permit("delete", table, record_id=record_id):
+        delete_btn = A(I(" ", _class="icon icon-remove-sign"),
+                       _class="dl-item-delete",
+                       )
+    else:
+        delete_btn = ""
+    edit_bar = DIV(edit_btn,
+                   delete_btn,
+                   _class="edit-bar fright",
+                   )
+
+    # Dropdown of available documents
+    documents = raw["doc_document.file"]
+    if documents:
+        if not isinstance(documents, list):
+            documents = [documents]
+        doc_list = UL(_class="dropdown-menu",
+                      _role="menu",
+                      )
+        retrieve = db.doc_document.file.retrieve
+        for doc in documents:
+            try:
+                doc_name = retrieve(doc)[0]
+            except IOError:
+                doc_name = current.messages["NONE"]
+            doc_url = URL(c="default", f="download",
+                          args=[doc])
+            doc_item = LI(A(I(_class="icon-file"),
+                            " ",
+                            doc_name,
+                            _href=doc_url,
+                            ),
+                          _role="menuitem",
+                          )
+            doc_list.append(doc_item)
+        docs = DIV(A(I(_class="icon-paper-clip"),
+                     SPAN(_class="caret"),
+                     _class="btn dropdown-toggle",
+                     _href="#",
+                     **{"_data-toggle": "dropdown"}
+                     ),
+                   doc_list,
+                   _class="btn-group attachments dropdown pull-right",
+                   )
+    else:
+        docs = ""
+
+    # Render the item
+    class SMALL(DIV):
+        tag = "small"
+
+    item = DIV(DIV(DIV(avatar,
+                       P(SMALL(" ", author, " ",
+                               A(organisation,
+                                 _href=org_url,
+                                 _class="card-organisation",
+                                 ),
+                               ),
+                         _class="citation"),
+                       _class="span1"),
+                   DIV(SPAN(A(location,
+                              _href=location_url,
+                              ),
+                            _class="location-title"),
+                       " ",
+                       SPAN(date,
+                            _class="date-title"),
+                       edit_bar,
+                       P(body,
+                         _class="card_comments"),
+                       docs,
+                       _class="span5 card-details"),
+                   _class="row",
+                   ),
+               _class=item_class,
+               _id=item_id,
+               )
+
+    return item
 
 # -----------------------------------------------------------------------------
 def render_projects(listid, resource, rfields, record, **attr):
@@ -1882,8 +2068,7 @@ def cms_post_marker_fn(record):
 
         @ToDo: A Bulk function
 
-
-        Using Style instead
+        Unused: Using Style instead
     """
 
     db = current.db
@@ -1997,7 +2182,7 @@ def customize_cms_post(**attr):
             field.label = T("Type")
             refresh = get_vars.get("refresh", None)
             if refresh == "datalist":
-                # We must be coming from the Updates page so can change the type on-the-fly
+                # We must be coming from the News Feed page so can change the type on-the-fly
                 field.readable = field.writable = True
             #field.requires = field.requires.other
             #field = table.name
@@ -2017,7 +2202,7 @@ def customize_cms_post(**attr):
             #table.comments.readable = table.comments.writable = False
 
             if current.request.controller == "default":
-                # Don't override card layout for Updates/Homepage
+                # Don't override card layout for News Feed/Homepage
                 return True
 
             # Filter from a Profile page?
@@ -2074,7 +2259,7 @@ def customize_cms_post(**attr):
 
             # Return to List view after create/update/delete
             # We now do all this in Popups
-            #url_next = URL(c="default", f="index", args="updates")
+            #url_next = URL(c="default", f="index", args="newsfeed")
 
             s3db.configure("cms_post",
                            #create_next = url_next,
@@ -2253,7 +2438,7 @@ def customize_event_event(**attr):
                                      layer = "Alerts",
                                      # provided by Catalogue Layer
                                      #marker = "alert",
-                                     list_layout = render_posts,
+                                     list_layout = render_profile_posts,
                                      )
                 incidents_widget = dict(label = "Incidents",
                                         title_create = "Add New Incident",
@@ -2266,7 +2451,7 @@ def customize_event_event(**attr):
                                         layer = "Incidents",
                                         # provided by Catalogue Layer
                                         #marker = "incident",
-                                        list_layout = render_posts,
+                                        list_layout = render_profile_posts,
                                         )
                 assessments_widget = dict(label = "Assessments",
                                           title_create = "Add New Assessment",
@@ -2279,7 +2464,7 @@ def customize_event_event(**attr):
                                           layer = "Assessments",
                                           # provided by Catalogue Layer
                                           #marker = "assessment",
-                                          list_layout = render_posts,
+                                          list_layout = render_profile_posts,
                                           )
                 activities_widget = dict(label = "Activities",
                                          title_create = "Add New Activity",
@@ -2292,7 +2477,7 @@ def customize_event_event(**attr):
                                          layer = "Activities",
                                          # provided by Catalogue Layer
                                          #marker = "activity",
-                                         list_layout = render_posts,
+                                         list_layout = render_profile_posts,
                                          )
                 reports_widget = dict(label = "Reports",
                                       title_create = "Add New Report",
@@ -2305,7 +2490,7 @@ def customize_event_event(**attr):
                                       layer = "Reports",
                                       # provided by Catalogue Layer
                                       #marker = "report",
-                                      list_layout = render_posts,
+                                      list_layout = render_profile_posts,
                                       )
                 #comments_widget = dict(label = "Comments",
                 #                       type = "comments",
@@ -2525,7 +2710,7 @@ def customize_gis_location(**attr):
                                         layer = "Incidents",
                                         # provided by Catalogue Layer
                                         #marker = "incident",
-                                        list_layout = render_posts,
+                                        list_layout = render_profile_posts,
                                         )
                 reports_widget = dict(label = "Reports",
                                       title_create = "Add New Report",
@@ -2538,7 +2723,7 @@ def customize_gis_location(**attr):
                                       layer = "Reports",
                                       # provided by Catalogue Layer
                                       #marker = "report",
-                                      list_layout = render_posts,
+                                      list_layout = render_profile_posts,
                                       )
                 projects_widget = dict(label = "Projects",
                                        title_create = "Add New Project",
@@ -2561,7 +2746,7 @@ def customize_gis_location(**attr):
                                          layer = "Activities",
                                          # provided by Catalogue Layer
                                          #marker = "activity",
-                                         list_layout = render_posts,
+                                         list_layout = render_profile_posts,
                                          )
                 name = location.name
                 # https://code.google.com/p/web2py/issues/detail?id=1533
@@ -3019,7 +3204,7 @@ def customize_org_organisation(**attr):
                                          layer = "Activities",
                                          # provided by Catalogue Layer
                                          #marker = "activity",
-                                         list_layout = render_posts,
+                                         list_layout = render_profile_posts,
                                          )
                 reports_widget = dict(label = "Reports",
                                       title_create = "Add New Report",
@@ -3031,7 +3216,7 @@ def customize_org_organisation(**attr):
                                       layer = "Reports",
                                       # provided by Catalogue Layer
                                       #marker = "report",
-                                      list_layout = render_posts,
+                                      list_layout = render_profile_posts,
                                       )
                 assessments_widget = dict(label = "Assessments",
                                           title_create = "Add New Assessment",
@@ -3043,7 +3228,7 @@ def customize_org_organisation(**attr):
                                           layer = "Assessments",
                                           # provided by Catalogue Layer
                                           #marker = "assessment",
-                                          list_layout = render_posts,
+                                          list_layout = render_profile_posts,
                                           )
                 record = r.record
                 s3db.configure("org_organisation",
@@ -3563,6 +3748,7 @@ def customize_project_project_fields():
 
     s3db.project_location.location_id.represent = s3db.gis_LocationRepresent(sep=" | ")
     table = s3db.project_project
+    table.objectives.readable = table.objectives.writable = True
     table.start_date.represent = date_represent
     table.end_date.represent = date_represent
     table.modified_by.represent = s3_auth_user_represent_name
@@ -3596,8 +3782,6 @@ def customize_project_project(**attr):
     """
 
     s3 = current.response.s3
-    s3db = current.s3db
-    table = s3db.project_project
 
     # Remove rheader
     attr["rheader"] = None
@@ -3611,6 +3795,8 @@ def customize_project_project(**attr):
             if not result:
                 return False
 
+        s3db = current.s3db
+        table = s3db.project_project
         if r.method == "datalist":
             customize_project_project_fields()
             s3db.configure("project_project",
@@ -3621,6 +3807,7 @@ def customize_project_project(**attr):
         elif r.interactive  or r.representation == "aadata":
             from s3.s3forms import S3SQLCustomForm, S3SQLInlineComponent
             # Configure fields 
+            table.objectives.readable = table.objectives.writable = True
             table.human_resource_id.label = T("Focal Person")
             table.budget.label = "%s (USD)" % T("Budget")
             # Better in column label & otherwise this construction loses thousands separators
@@ -3632,11 +3819,7 @@ def customize_project_project(**attr):
             # If so, then default the fields we know
             get_vars = current.request.get_vars
             organisation_id = get_vars.get("~.(organisation)", None)
-            if organisation_id:
-                org_field = table.organisation_id
-                org_field.default = organisation_id
-                org_field.readable = org_field.writable = False
-                crud_form = S3SQLCustomForm(
+            crud_form_fields = [
                     "name",
                     S3SQLInlineComponent(
                         "location",
@@ -3645,6 +3828,7 @@ def customize_project_project(**attr):
                         orderby = "location_id$name",
                         render_list = True
                     ),
+                    "description",
                     "human_resource_id",
                     "start_date",
                     "end_date",
@@ -3670,6 +3854,7 @@ def customize_project_project(**attr):
                                         )
                     ),
                     "budget",
+                    "objectives",
                     # Files
                     S3SQLInlineComponent(
                         "document",
@@ -3680,7 +3865,11 @@ def customize_project_project(**attr):
                                   ],
                     ),
                     "comments",
-                )
+                    ]
+            if organisation_id:
+                org_field = table.organisation_id
+                org_field.default = organisation_id
+                org_field.readable = org_field.writable = False
             else:
                 location_field = s3db.project_location.location_id
                 location_id = get_vars.get("~.(location)", None)
@@ -3700,53 +3889,9 @@ def customize_project_project(**attr):
                 location_field.comment = None
                 # Simple dropdown
                 location_field.widget = None
-                
-                crud_form = S3SQLCustomForm(
-                    "name",
-                    "organisation_id",
-                    S3SQLInlineComponent(
-                        "location",
-                        label = T("Districts"),
-                        fields = ["location_id"],
-                        orderby = "location_id$name",
-                        render_list = True
-                    ),
-                    "human_resource_id",
-                    "start_date",
-                    "end_date",
-                    # Partner Orgs
-                    S3SQLInlineComponent(
-                        "organisation",
-                        name = "partner",
-                        label = T("Partner Organizations"),
-                        fields = ["organisation_id",
-                                  ],
-                        filterby = dict(field = "role",
-                                        options = "2"
-                                        )
-                    ),
-                    # Donors
-                    S3SQLInlineComponent(
-                        "organisation",
-                        name = "donor",
-                        label = T("Donor(s)"),
-                        fields = ["organisation_id", "amount", "currency"],
-                        filterby = dict(field = "role",
-                                        options = "3"
-                                        )
-                    ),
-                    "budget",
-                    # Files
-                    S3SQLInlineComponent(
-                        "document",
-                        name = "file",
-                        label = T("Files"),
-                        fields = ["file",
-                                  #"comments"
-                                  ],
-                    ),
-                    "comments",
-                )
+                crud_form_fields.insert(1, "organisation_id")
+
+            crud_form = S3SQLCustomForm(*crud_form_fields)
 
             list_fields = ["name",
                            "organisation_id",
