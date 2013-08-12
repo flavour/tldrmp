@@ -5380,7 +5380,7 @@ class GIS(object):
                  toolbar = False,
                  nav = None,
                  area = False,
-                 save = True,
+                 save = False,
                  search = False,
                  mouse_position = None,
                  overview = None,
@@ -5459,7 +5459,7 @@ class GIS(object):
                 }
             @param catalogue_layers: Show all the enabled Layers from the GIS Catalogue
                                      Defaults to False: Just show the default Base layer
-            @param legend: Show the Legend panel
+            @param legend: True: Show the GeoExt Legend panel, False: No Panel, "floating": New floating Legend Panel
             @param toolbar: Show the Icon Toolbar of Controls
             @param nav: Show the Navigation controls on the Toolbar
             @param area: Show the Area tool on the Toolbar
@@ -5849,10 +5849,13 @@ class MAP(DIV):
                     options["config_id"] = config_id
 
         # Legend panel
-        if opts.get("legend", False):
-            # Presence of label turns feature on in s3.gis.js
-            # @ToDo: Provide explicit option to support multiple maps in a page with different options
+        legend = opts.get("legend", False)
+        if legend:
             i18n["gis_legend"] = T("Legend")
+            if legend == "float":
+                options["legend"] = "float"
+            else:
+                options["legend"] = True
 
         # Draw Feature Controls
         if opts.get("add_feature", False):
@@ -7443,6 +7446,12 @@ class LayerShapefile(Layer):
                       }
             
             # Attributes which are defaulted client-side if not set
+            self.add_attributes_if_not_default(
+                output,
+                desc = (self.description, (None, "")),
+                src = (self.source_name, (None, "")),
+                src_url = (self.source_url, (None, "")),
+            )
             # We convert on-upload to have BBOX handling work properly
             #projection = self.projection
             #if projection.epsg != 4326:
@@ -7541,18 +7550,22 @@ class LayerWFS(Layer):
                           url = self.url,
                           title = self.title,
                           featureType = self.featureType,
-                          featureNS = self.featureNS,
-                          schema = self.wfs_schema,
                           )
 
             # Attributes which are defaulted client-side if not set
             self.add_attributes_if_not_default(
                 output,
                 version = (self.version, ("1.1.0",)),
+                featureNS = (self.featureNS, (None, "")),
                 geometryName = (self.geometryName, ("the_geom",)),
+                schema = (self.wfs_schema, (None, "")),
                 username = (self.username, (None, "")),
                 password = (self.password, (None, "")),
                 projection = (self.projection.epsg, (4326,)),
+                desc = (self.description, (None, "")),
+                src = (self.source_name, (None, "")),
+                src_url = (self.source_url, (None, "")),
+                refresh = (self.refresh, (0,)),
                 #editable
             )
             self.setup_folder_visibility_and_opacity(output)
@@ -7619,7 +7632,10 @@ class LayerWMS(Layer):
                 tiled = (self.tiled, (False,)),
                 legendURL = (legend_url, (None, "")),
                 queryable = (self.queryable, (False,)),
-            )
+                desc = (self.description, (None, "")),
+                src = (self.source_name, (None, "")),
+                src_url = (self.source_url, (None, "")),
+                )
             self.setup_folder_visibility_and_opacity(output)
             return output
 

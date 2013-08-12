@@ -294,13 +294,17 @@ OpenLayers.ProxyHost = S3.Ap.concat('/gis/proxy?url=');
         portal.map = mapPanel;
         s3.portal = portal;
 
-        if (i18n.gis_legend || options.layers_wms) {
+        if (options.legend || options.layers_wms) {
             var layers = map.layers;
             var mp_items = mapPanel.layers.data.items;
             for (var i = 0; i < layers.length; i++) {
                 // Ensure that legendPanel knows about the Markers for our Feature layers
                 if (layers[i].legendURL) {
                     mp_items[i].data.legendURL = layers[i].legendURL;
+                }
+                // Add any Custom Legend Titles
+                if (layers[i].legendTitle) {
+                    mp_items[i].data.title = layers[i].legendTitle;
                 }
                 // Ensure that mapPanel knows about whether our WMS layers are queryable
                 if (layers[i].queryable) {
@@ -327,21 +331,27 @@ OpenLayers.ProxyHost = S3.Ap.concat('/gis/proxy?url=');
         }
 
         // Legend Panel
-        if (i18n.gis_legend) {
-           var legendPanel = new GeoExt.LegendPanel({
-                //cls: 'legendpanel',
-                title: i18n.gis_legend,
-                defaults: {
-                    //labelCls: 'mylabel'
-                    //style: 'padding:4px'
-                },
-                //bodyStyle: 'padding:4px',
-                autoScroll: true,
-                collapsible: true,
-                collapseMode: 'mini'
-                //lines: false
-            });
-            west_panel_items.push(legendPanel);
+        if (options.legend) {
+            if (options.legend == "float") {
+                // Floating
+                addLegendPanel(map); 
+            } else {
+                // Integrated in West Panel
+                var legendPanel = new GeoExt.LegendPanel({
+                    //cls: 'legendpanel',
+                    title: i18n.gis_legend,
+                    defaults: {
+                        //labelCls: 'mylabel'
+                        //style: 'padding:4px'
+                    },
+                    //bodyStyle: 'padding:4px',
+                    autoScroll: true,
+                    collapsible: true,
+                    collapseMode: 'mini'
+                    //lines: false
+                });
+                west_panel_items.push(legendPanel);
+            }
         }
 
         // Plugins
@@ -1118,6 +1128,7 @@ OpenLayers.ProxyHost = S3.Ap.concat('/gis/proxy?url=');
             var cluster_attribute = layer.cluster_attribute;
         } else {
             // Default to global settings
+            //var cluster_attribute = cluster_attribute_default;
             var cluster_attribute = 'colour';
         }
         if (undefined != layer.cluster_distance) {
@@ -1149,6 +1160,27 @@ OpenLayers.ProxyHost = S3.Ap.concat('/gis/proxy?url=');
             // Feature Layers
             var layer_type = 'feature';
         }
+        var legendTitle = '<div class="gis_layer_legend"><div class="gis_legend_title">' + name + '</div>';
+        if (undefined != layer.desc) {
+            legendTitle += '<div class="gis_legend_desc">' + layer.desc + '</div>';
+        }
+        if ((undefined != layer.src) || (undefined != layer.src_url)) {
+            var source = '<div class="gis_legend_src">';
+            if (undefined != layer.src_url) {
+                source += '<a href="' + layer.src_url + '" target="_blank">'
+                if (undefined != layer.src) {
+                    source += layer.src;
+                } else {
+                    source += layer.src_url;
+                }
+                source += '</a>';
+            } else {
+                source += layer.src;
+            }
+            source += '</div>';
+            legendTitle += source;
+        }
+        legendTitle += '</div>';
 
         // Styling
         var response = createStyleMap(map, layer);
@@ -1210,6 +1242,8 @@ OpenLayers.ProxyHost = S3.Ap.concat('/gis/proxy?url=');
                 s3_style: layer.style
             }
         );
+        // This gets picked up after mapPanel instantiates & copied to it's layerRecords
+        geojsonLayer.legendTitle = legendTitle;
         geojsonLayer.setVisibility(visibility);
         geojsonLayer.events.on({
             'featureselected': onFeatureSelect,
@@ -1802,8 +1836,16 @@ OpenLayers.ProxyHost = S3.Ap.concat('/gis/proxy?url=');
         }
         var title = layer.title;
         var featureType = layer.featureType;
-        var featureNS = layer.featureNS;
-        var schema = layer.schema;
+        if (undefined != layer.featureNS) {
+            var featureNS = layer.featureNS;
+        } else {
+            var featureNS = null;
+        }
+        if (undefined != layer.schema) {
+            var schema = layer.schema;
+        } else {
+            var schema = null;
+        }
         //var editable = layer.editable;
         if (undefined != layer.version) {
             var version = layer.version;
@@ -1831,6 +1873,13 @@ OpenLayers.ProxyHost = S3.Ap.concat('/gis/proxy?url=');
             // Default folder
             var dir = '';
         }
+        if (undefined != layer.cluster_attribute) {
+            var cluster_attribute = layer.cluster_attribute;
+        } else {
+            // Default to global settings
+            //var cluster_attribute = cluster_attribute_default;
+            var cluster_attribute = 'colour';
+        }
         if (undefined != layer.cluster_distance) {
             var cluster_distance = layer.cluster_distance;
         } else {
@@ -1841,6 +1890,50 @@ OpenLayers.ProxyHost = S3.Ap.concat('/gis/proxy?url=');
         } else {
             var cluster_threshold = cluster_threshold_default;
         }
+        if (undefined != layer.refresh) {
+            var refresh = layer.refresh;
+        } else {
+            // Default to Off as 'External Source' which is uneditable
+            var refresh = false;
+        }
+        // Strategies
+        var strategies = [
+            // Need to be uniquely instantiated
+            new OpenLayers.Strategy.BBOX({
+                // load features for a wider area than the visible extent to reduce calls
+                ratio: 1.5
+                // don't fetch features after every resolution change
+                //resFactor: 1
+            })
+        ]
+        if (refresh) {
+            strategies.push(new OpenLayers.Strategy.Refresh({
+                force: true,
+                interval: refresh * 1000 // milliseconds
+                // Close any open Popups to prevent them getting orphaned
+                // - annoying to have this happen automatically, so we handle it in onPopupClose() instead
+                //refresh: function() {
+                //    if (this.layer && this.layer.refresh) {
+                //        while (this.layer.map.popups.length) {
+                //            this.layer.map.removePopup(this.layer.map.popups[0]);
+                //        }
+                //    this.layer.refresh({force: this.force});
+                //    }
+                //}
+            }));
+        }
+        if (cluster_threshold) {
+            // Common Cluster Strategy for all layers
+            //map.s3.common_cluster_strategy
+            strategies.push(new OpenLayers.Strategy.AttributeCluster({
+                attribute: cluster_attribute,
+                distance: cluster_distance,
+                threshold: cluster_threshold
+            }))
+        }
+        // @ToDo: if Editable
+        //strategies.push(saveStrategy);
+
         if (undefined != layer.projection) {
             var projection = layer.projection;
             var srsName = 'EPSG:' + projection;
@@ -1858,6 +1951,28 @@ OpenLayers.ProxyHost = S3.Ap.concat('/gis/proxy?url=');
             // Needed for WFS-T
             schema: schema
         });
+
+        var legendTitle = '<div class="gis_layer_legend"><div class="gis_legend_title">' + name + '</div>';
+        if (undefined != layer.desc) {
+            legendTitle += '<div class="gis_legend_desc">' + layer.desc + '</div>';
+        }
+        if ((undefined != layer.src) || (undefined != layer.src_url)) {
+            var source = '<div class="gis_legend_src">';
+            if (undefined != layer.src_url) {
+                source += '<a href="' + layer.src_url + '" target="_blank">'
+                if (undefined != layer.src) {
+                    source += layer.src;
+                } else {
+                    source += layer.src_url;
+                }
+                source += '</a>';
+            } else {
+                source += layer.src;
+            }
+            source += '</div>';
+            legendTitle += source;
+        }
+        legendTitle += '</div>';
 
         // Styling
         var response = createStyleMap(map, layer);
@@ -1887,20 +2002,7 @@ OpenLayers.ProxyHost = S3.Ap.concat('/gis/proxy?url=');
             name, {
             // limit the number of features to avoid browser freezes
             maxFeatures: 1000,
-            strategies: [
-                new OpenLayers.Strategy.BBOX({
-                    // load features for a wider area than the visible extent to reduce calls
-                    ratio: 1.5
-                    // don't fetch features after every resolution change
-                    //resFactor: 1
-                }),
-                new OpenLayers.Strategy.Cluster({
-                    distance: cluster_distance,
-                    threshold: cluster_threshold
-                })//,
-                // if Editable
-                //saveStrategy
-            ],
+            strategies: strategies,
             dir: dir,
             // This gets picked up after mapPanel instantiates & copied to it's layerRecords
             legendURL: marker_url,
@@ -1915,6 +2017,8 @@ OpenLayers.ProxyHost = S3.Ap.concat('/gis/proxy?url=');
             s3_style: layer.style
         });
 
+        // This gets picked up after mapPanel instantiates & copied to it's layerRecords
+        wfsLayer.legendTitle = legendTitle;
         wfsLayer.title = title;
         wfsLayer.setVisibility(visibility);
         wfsLayer.events.on({
@@ -2013,6 +2117,27 @@ OpenLayers.ProxyHost = S3.Ap.concat('/gis/proxy?url=');
         } else {
             var queryable = 1;
         }
+        var legendTitle = '<div class="gis_layer_legend"><div class="gis_legend_title">' + name + '</div>';
+        if (undefined != layer.desc) {
+            legendTitle += '<div class="gis_legend_desc">' + layer.desc + '</div>';
+        }
+        if ((undefined != layer.src) || (undefined != layer.src_url)) {
+            var source = '<div class="gis_legend_src">';
+            if (undefined != layer.src_url) {
+                source += '<a href="' + layer.src_url + '" target="_blank">'
+                if (undefined != layer.src) {
+                    source += layer.src;
+                } else {
+                    source += layer.src_url;
+                }
+                source += '</a>';
+            } else {
+                source += layer.src;
+            }
+            source += '</div>';
+            legendTitle += source;
+        }
+        legendTitle += '</div>';
         if (undefined != layer.legendURL) {
             var legendURL = layer.legendURL;
         } else{
@@ -2063,6 +2188,8 @@ OpenLayers.ProxyHost = S3.Ap.concat('/gis/proxy?url=');
                 wmsLayer.buffer = 0;
             }
         }
+        // This gets picked up after mapPanel instantiates & copied to it's layerRecords
+        wmsLayer.legendTitle = legendTitle;
         if (legendURL) {
             // This gets picked up after mapPanel instantiates & copied to it's layerRecords
             wmsLayer.legendURL = legendURL;
@@ -3177,6 +3304,23 @@ OpenLayers.ProxyHost = S3.Ap.concat('/gis/proxy?url=');
 
             toolbar.add(areaButton);
         }
+    }
+
+    // Legend Panel as floating DIV
+    var addLegendPanel = function(map, legendPanel) {
+        var map_id = map.s3.id;
+        var div = '<div class="map_legend_panel"></div>';
+        $('#' + map_id).append(div);
+        var legendPanel = new GeoExt.LegendPanel({
+            title: i18n.gis_legend,
+            // Ext 4.x option
+            //maxHeight: 600,
+            autoScroll: true,
+            border: false
+        });
+        var jquery_obj = $('#' + map_id + ' .map_legend_panel');
+        var el = Ext.get(jquery_obj[0]);
+        legendPanel.render(el);
     }
 
     // Navigation History

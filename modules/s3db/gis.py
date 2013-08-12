@@ -3248,6 +3248,8 @@ class S3MapModel(S3Model):
                              layer_id,
                              name_field()(),
                              desc_field()(),
+                             source_name_field()(),
+                             source_url_field()(),
                              Field("shape", "upload", autodelete=True,
                                    label = T("ESRI Shape File"),
                                    requires = IS_UPLOAD_FILENAME(extension="zip"),
@@ -3382,6 +3384,8 @@ class S3MapModel(S3Model):
                              layer_id,
                              name_field()(),
                              desc_field()(),
+                             source_name_field()(),
+                             source_url_field()(),
                              Field("url",
                                    label=LOCATION,
                                    requires = IS_NOT_EMPTY(),
@@ -3437,9 +3441,9 @@ class S3MapModel(S3Model):
                                    requires=IS_IN_SET(["1.0.0", "1.1.0"],
                                                       zero=None)),
                              gis_layer_folder()(),
-                             #gis_refresh()(),
+                             gis_refresh()(default=0), # Default to Off as 'External Source' which is uneditable
                              gis_opacity()(),
-                             #cluster_attribute()(),
+                             cluster_attribute()(),
                              cluster_distance()(),
                              cluster_threshold()(),
                              #Field("editable", "boolean", default=False, label=T("Editable?")),
@@ -3449,6 +3453,7 @@ class S3MapModel(S3Model):
 
         configure(tablename,
                   onaccept=gis_layer_onaccept,
+                  deduplicate = self.gis_layer_wfs_deduplicate,
                   super_entity="gis_layer_entity")
 
         # Components
@@ -3458,6 +3463,16 @@ class S3MapModel(S3Model):
                                             pkey="layer_id",
                                             joinby="layer_id",
                                             key="config_id",
+                                            actuate="hide",
+                                            autocomplete="name",
+                                            autodelete=False))
+
+        # Symbologies
+        add_component("gis_symbology",
+                      gis_layer_wfs=Storage(link="gis_layer_symbology",
+                                            pkey="layer_id",
+                                            joinby="layer_id",
+                                            key="symbology_id",
                                             actuate="hide",
                                             autocomplete="name",
                                             autodelete=False))
@@ -3474,6 +3489,8 @@ class S3MapModel(S3Model):
                              layer_id,
                              name_field()(),
                              desc_field()(),
+                             source_name_field()(),
+                             source_url_field()(),
                              Field("url",
                                    label=LOCATION,
                                    requires = IS_NOT_EMPTY(),
@@ -3738,6 +3755,34 @@ class S3MapModel(S3Model):
             data = item.data
             url = data.url
             query = (table.url == url)
+            duplicate = current.db(query).select(table.id,
+                                                 limitby=(0, 1)).first()
+            if duplicate:
+                item.id = duplicate.id
+                item.method = item.METHOD.UPDATE
+        return
+        
+    # -------------------------------------------------------------------------
+    @staticmethod
+    def gis_layer_wfs_deduplicate(item):
+        """
+          This callback will be called when importing Symbology records it will look
+          to see if the record being imported is a duplicate.
+
+          @param item: An S3ImportJob object which includes all the details
+                      of the record being imported
+
+          If the record is a duplicate then it will set the job method to update
+        """
+
+        if item.tablename == "gis_layer_wfs":
+            # Match if url is identical
+            table = item.table
+            data = item.data
+            featureType = data.featureType
+            url = data.url
+            query = (table.url == url) & \
+                    (table.featureType == featureType)
             duplicate = current.db(query).select(table.id,
                                                  limitby=(0, 1)).first()
             if duplicate:
@@ -4163,6 +4208,21 @@ def desc_field():
                            )
 
 # =============================================================================
+def source_name_field():
+    return S3ReusableField("source_name",
+                           label=current.T("Source Name"),
+                           represent = lambda v: v or current.messages["NONE"],
+                           )
+
+# =============================================================================
+def source_url_field():
+    return S3ReusableField("source_url",
+                           label=current.T("Source URL"),
+                           requires = IS_NULL_OR(IS_URL(mode="generic")),
+                           represent = lambda v: v or current.messages["NONE"],
+                           )
+
+# =============================================================================
 def gis_layer_folder():
     T = current.T
     FOLDER = T("Folder")
@@ -4178,7 +4238,7 @@ def gis_opacity():
     OPACITY = T("Opacity")
     return S3ReusableField("opacity", "double", default=1.0,
                            requires = IS_FLOAT_IN_RANGE(0, 1),
-                           widget = S3SliderWidget(minval=0, maxval=1, steprange=0.01, value=1),
+                           widget = S3SliderWidget(minval=0, maxval=1, steprange=0.01),
                            comment = DIV(_class="tooltip",
                                          _title="%s|%s" % (OPACITY,
                                                            T("Left-side is fully transparent (0), right-side is opaque (1.0)."))),
@@ -4746,7 +4806,8 @@ def gis_rheader(r, tabs=[]):
     elif resourcename == "layer_feature" or \
          resourcename == "layer_georss" or \
          resourcename == "layer_geojson" or \
-         resourcename == "layer_kml":
+         resourcename == "layer_kml" or \
+         resourcename == "layer_wfs":
         # Tabs
         if not tabs:
             tabs = [(T("Layer Details"), None),
@@ -4797,7 +4858,6 @@ def gis_rheader(r, tabs=[]):
          resourcename == "layer_openweathermap" or \
          resourcename == "layer_tms" or \
          resourcename == "layer_wms" or \
-         resourcename == "layer_wfs" or \
          resourcename == "layer_xyz" or \
          resourcename == "layer_arcrest" or \
          resourcename == "layer_coordinate" or \

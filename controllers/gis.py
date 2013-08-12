@@ -99,12 +99,12 @@ def define_map(height = None,
     if not config:
         config = gis.get_config()
 
+    legend = settings.get_gis_legend()
+
     # @ToDo: Make these configurable
     search = True
-    legend = True
     #googleEarth = True
     #googleStreetview = True
-    catalogue_layers = True
 
     if config.wmsbrowser_url:
         wms_browser = {"name" : config.wmsbrowser_name,
@@ -119,17 +119,18 @@ def define_map(height = None,
     else:
         print_tool = {}
 
-    map = gis.show_map(height=height,
-                       width=width,
-                       window=window,
+    map = gis.show_map(height = height,
+                       width = width,
+                       window = window,
                        wms_browser = wms_browser,
-                       toolbar=toolbar,
-                       collapsed=collapsed,
-                       closable=closable,
-                       maximizable=maximizable,
-                       legend=legend,
-                       search=search,
-                       catalogue_layers=catalogue_layers,
+                       toolbar = toolbar,
+                       collapsed = collapsed,
+                       closable = closable,
+                       maximizable = maximizable,
+                       legend = legend,
+                       save = True,
+                       search = search,
+                       catalogue_layers = True,
                        print_tool = print_tool,
                        )
 
@@ -2299,6 +2300,23 @@ def layer_wfs():
                                                           not_filterby="config_id",
                                                           not_filter_opts=[row.config_id for row in rows]
                                                           )
+            elif r.component_name == "symbology":
+                # Markers
+                ltable = s3db.gis_layer_symbology
+                #ltable.gps_marker.readable = ltable.gps_marker.writable = False
+                if r.method != "update":
+                    # Only show ones with no definition yet for this Layer
+                    table = r.table
+                    # Find the records which are used
+                    query = (ltable.layer_id == table.layer_id) & \
+                            (table.id == r.id)
+                    rows = db(query).select(ltable.symbology_id)
+                    # Filter them out
+                    ltable.symbology_id.requires = IS_ONE_OF(db, "gis_symbology.id",
+                                                             "%(name)s",
+                                                             not_filterby="id",
+                                                             not_filter_opts=[row.symbology_id for row in rows]
+                                                             )
         return True
     s3.prep = prep
 
