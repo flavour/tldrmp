@@ -38,6 +38,7 @@ __all__ = ["S3PersonEntity",
            "S3PersonEducationModel",
            "S3PersonDetailsModel",
            "S3SavedFilterModel",
+           "S3SubscriptionModel",
            "S3SavedSearch",
            "S3PersonPresence",
            "S3PersonDescription",
@@ -2469,7 +2470,7 @@ class S3PersonDetailsModel(S3Model):
 class S3SavedFilterModel(S3Model):
     """ Saved Filters """
 
-    names = ["pr_filter"]
+    names = ["pr_filter", "pr_filter_id"]
 
     def model(self):
 
@@ -2478,14 +2479,106 @@ class S3SavedFilterModel(S3Model):
         # ---------------------------------------------------------------------
         tablename = "pr_filter"
         table = self.define_table(tablename,
+                                  self.super_link("pe_id", "pr_pentity"),
                                   Field("title"),
                                   Field("controller"),
                                   Field("function"),
                                   Field("resource"),
                                   Field("description", "text"),
-                                  self.super_link("pe_id", "pr_pentity"),
                                   Field("query", "text"),
                                   s3_comments(),
+                                  *s3_meta_fields())
+
+        represent = S3Represent(lookup=tablename, fields=["title"])
+        filter_id = S3ReusableField("filter_id", table,
+                                    requires = IS_EMPTY_OR(IS_ONE_OF(
+                                                    db, "pr_filter.id",
+                                                    represent,
+                                                    orderby="pr_filter.title",
+                                                    sort=True)),
+                                    represent = represent,
+                                    label = T("Filter"),
+                                    ondelete = "SET NULL")
+
+        # ---------------------------------------------------------------------
+        # Pass names back to global scope (s3.*)
+        #
+        return dict(pr_filter_id = filter_id)
+
+# =============================================================================
+class S3SubscriptionModel(S3Model):
+    """ Model for subscriptions """
+
+    names = ["pr_subscription",
+             "pr_subscription_resource",
+            ]
+
+    def model(self):
+
+        T = current.T
+        UNKNOWN_OPT = current.messages.UNKNOWN_OPT
+
+        trigger_opts = {
+            "new": T("New Records"),
+            "upd": T("Record Updates"),
+        }
+
+        frequency_opts = (
+            ("never", T("Never")),
+            #("immediately", T("Immediately")),
+            ("hourly", T("Hourly")),
+            ("daily", T("Daily")),
+            ("weekly", T("Weekly")),
+        )
+
+        MSG_CONTACT_OPTS = current.msg.MSG_CONTACT_OPTS
+        
+        # ---------------------------------------------------------------------
+        tablename = "pr_subscription"
+        table = self.define_table(tablename,
+                                  self.super_link("pe_id", "pr_pentity"),
+                                  self.pr_filter_id(),
+                                  Field("notify_on", "list:string",
+                                        requires=IS_IN_SET(trigger_opts,
+                                                           multiple=True,
+                                                           zero=None),
+                                        default=["new"],
+                                        represent=S3Represent(
+                                                    options=trigger_opts,
+                                                    multiple=True)),
+                                  Field("frequency",
+                                        requires=IS_IN_SET(frequency_opts,
+                                                           zero=None),
+                                        default="never",
+                                        represent=lambda opt: \
+                                                  frequency_opts.get(opt,
+                                                                     UNKNOWN_OPT)),
+                                  Field("method", "list:string",
+                                        requires=IS_IN_SET(MSG_CONTACT_OPTS,
+                                                           multiple=True,
+                                                           zero=None),
+                                        default=["EMAIL"],
+                                        represent=S3Represent(
+                                                    options=MSG_CONTACT_OPTS,
+                                                    multiple=True)),
+                                  #Field("last_checked", "datetime",
+                                        #default=current.request.utcnow,
+                                        #writable=False),
+                                  #Field("next_due_time", "datetime",
+                                        #writable=False),
+                                  *s3_meta_fields())
+
+        self.add_component("pr_subscription_resource",
+                           pr_subscription="subscription_id")
+
+        # ---------------------------------------------------------------------
+        tablename = "pr_subscription_resource"
+        table = self.define_table(tablename,
+                                  Field("subscription_id",
+                                        "reference pr_subscription",
+                                        ondelete="CASCADE"),
+                                  Field("resource"),
+                                  Field("url"),
                                   *s3_meta_fields())
 
         # ---------------------------------------------------------------------
@@ -3677,17 +3770,20 @@ class pr_PersonEntityRepresent(S3Represent):
     def __init__(self,
                  show_label=True,
                  default_label="[No ID Tag]",
+                 show_type=True,
                  multiple=False):
         """
             Constructor
 
             @param show_label: show the ID tag label for persons
             @param default_label: the default for the ID tag label
+            @param show_type: show the instance_type
             @param multiple: assume a value list by default
         """
 
         self.show_label = show_label
         self.default_label = default_label
+        self.show_type = show_type
 
         super(pr_PersonEntityRepresent, self).__init__(lookup="pr_pentity",
                                                        key="pe_id",
@@ -3776,25 +3872,29 @@ class pr_PersonEntityRepresent(S3Represent):
         else:
             label = None
 
-        etable = current.s3db.pr_pentity
-        instance_type_nice = etable.instance_type.represent(instance_type)
+        if self.show_type:
+            etable = current.s3db.pr_pentity
+            instance_type_nice = etable.instance_type.represent(instance_type)
+            instance_type_nice = " (%s)" % instance_type_nice
+        else:
+            instance_type_nice = ""
 
         item = object.__getattribute__(row, instance_type)
         if instance_type == "pr_person":
             if show_label:
-                pe_str = "%s %s (%s)" % (s3_fullname(item),
-                                         label,
-                                         instance_type_nice)
-            else:
-                pe_str = "%s (%s)" % (s3_fullname(item),
+                pe_str = "%s %s%s" % (s3_fullname(item),
+                                      label,
                                       instance_type_nice)
+            else:
+                pe_str = "%s%s" % (s3_fullname(item),
+                                   instance_type_nice)
 
         elif "name" in item:
-            pe_str = "%s (%s)" % (item["name"],
-                                  instance_type_nice)
+            pe_str = "%s" % (item["name"],
+                             instance_type_nice)
         else:
-            pe_str = "[%s] (%s)" % (label,
-                                    instance_type_nice)
+            pe_str = "[%s]" % (label,
+                               instance_type_nice)
 
         return pe_str
 
