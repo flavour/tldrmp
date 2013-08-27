@@ -36,52 +36,10 @@ class index(S3CustomController):
         # Image Carousel
         s3.jquery_ready.append('''$('#myCarousel').carousel()''')
 
-        if current.auth.is_logged_in():
-            s3db = current.s3db
-            # Latest 4 Events
-            resource = s3db.resource("cms_post")
-            resource.add_filter(S3FieldSelector("series_id$name") == "Event")
-            list_fields = ["location_id",
-                           "date",
-                           "body",
-                           "created_by",
-                           "created_by$organisation_id",
-                           "document.file",
-                           "event_post.event_id",
-                           ]
-            orderby = resource.get_config("list_orderby",
-                                          ~resource.table.date)
-            datalist, numrows, ids = resource.datalist(fields=list_fields,
-                                                       start=None,
-                                                       limit=4,
-                                                       listid="event_datalist",
-                                                       orderby=orderby,
-                                                       layout=render_cms_events)
-            if numrows == 0:
-                # Empty table or just no match?
-                table = resource.table
-                if "deleted" in table:
-                    available_records = current.db(table.deleted != True)
-                else:
-                    available_records = current.db(table._id > 0)
-                if available_records.select(table._id,
-                                            limitby=(0, 1)).first():
-                    msg = DIV(S3CRUD.crud_string(resource.tablename,
-                                                 "msg_no_match"),
-                              _class="empty")
-                else:
-                    msg = DIV(S3CRUD.crud_string(resource.tablename,
-                                                 "msg_list_empty"),
-                              _class="empty")
-                data = msg
-            else:
-                # Render the list
-                dl = datalist.html()
-                data = dl
-            output["events"] = data
-
-            # Latest 4 Updates
-            resource = s3db.resource("cms_post")
+        # Latest 4 Events
+        resource = current.s3db.resource("cms_post")
+        def latest_4_posts(series_filter, layout):
+            resource.add_filter(S3FieldSelector("series_id$name") == series_filter)
             list_fields = ["series_id",
                            "location_id",
                            "date",
@@ -91,14 +49,14 @@ class index(S3CustomController):
                            "document.file",
                            "event_post.event_id",
                            ]
-            orderby = resource.get_config("list_orderby",
-                                          ~resource.table.date)
+            orderby = resource.table.date
+            resource.add_filter(resource.table.date >= current.request.now)
             datalist, numrows, ids = resource.datalist(fields=list_fields,
                                                        start=None,
                                                        limit=4,
                                                        listid="news_datalist",
                                                        orderby=orderby,
-                                                       layout=s3.render_posts)
+                                                       layout=layout)
             if numrows == 0:
                 # Empty table or just no match?
                 table = resource.table
@@ -120,7 +78,13 @@ class index(S3CustomController):
                 # Render the list
                 dl = datalist.html()
                 data = dl
-            output["news"] = data
+            return data
+
+        layout = s3.render_posts
+
+        output["events"] = latest_4_posts("Event", layout)
+
+        output["alerts"] = latest_4_posts("Alert", layout)
 
         self._view(THEME, "index.html")
         return output
@@ -235,6 +199,11 @@ def _newsfeed():
                    list_layout = list_layout,
                    # Create form comes via AJAX in a Modal
                    insertable = False,
+                   notify_fields = [(T("Type"), "series_id"),
+                                    (T("Date"), "date"),
+                                    (T("Location"), "location_id"),
+                                    (T("Description"), "body"),
+                                   ]
                    )
 
     s3.dl_pagelength = 6  # 5 forces an AJAX call
@@ -248,6 +217,12 @@ def _newsfeed():
         request.args = ["filter"]
         ajax = "filter"
     elif "validate.json" in request.args:
+        # Inline component validation request
+        request.args = []
+        ajax = True
+    elif current.auth.permission.format == "msg":
+        # Subscription lookup request
+        request.args = []
         ajax = True
     else:
         # Default
@@ -642,18 +617,9 @@ class subscriptions(S3CustomController):
         T = current.T
         
         # Available resources
-        resources = [dict(resource="hrm_human_resource",
-                          url="vol/volunteer",
-                          label=T("Volunteers")),
-                     dict(resource="hrm_human_resource",
-                          url="hrm/staff",
-                          label=T("Staff")),
-                     dict(resource="cms_post",
+        resources = [dict(resource="cms_post",
                           url="default/index/newsfeed",
                           label=T("Updates")),
-                     dict(resource="org_organisation",
-                          url="org/organisation",
-                          label=T("Organizations")),
                     ]
 
         # Filter widgets
@@ -661,14 +627,14 @@ class subscriptions(S3CustomController):
         #        must configure fixed options or lookup resources
         #        for filter widgets which need it.
         filters = [S3OptionsFilter("series_id",
-                                   label=T("Filter by Type"),
+                                   label=T("Subscribe to"),
                                    represent="%(name)s",
-                                   widget="multiselect",
-                                   cols=3,
+                                   widget="groupedopts",
+                                   cols=2,
                                    resource="cms_post",
                                    _name="type-filter"),
                    S3LocationFilter("location_id",
-                                    label=T("Filter by Location"),
+                                    label=T("Location(s)"),
                                     levels=["L1", "L2", "L3"],
                                     widget="multiselect",
                                     cols=3,
@@ -731,28 +697,28 @@ class subscriptions(S3CustomController):
         form = FORM(_id="subscription-form",
                     hidden={"subscription-filters": ""})
 
-        # Resource selector
-        options = []
-        selected_resources = set()
-        subscribed = subscription["resources"]
-        for idx, rconfig in enumerate(resources):
-            options.append((idx, rconfig["label"]))
-            if subscribed:
-                for s in subscribed:
-                    if s.resource == rconfig["resource"] and \
-                       s.url == rconfig["url"]:
-                        selected_resources.add(idx)
+        # Deactivated: resource selector
+        #options = []
+        #selected_resources = set()
+        #subscribed = subscription["resources"]
+        #for idx, rconfig in enumerate(resources):
+            #options.append((idx, rconfig["label"]))
+            #if subscribed:
+                #for s in subscribed:
+                    #if s.resource == rconfig["resource"] and \
+                       #s.url == rconfig["url"]:
+                        #selected_resources.add(idx)
 
-        dummy = Storage(name="resources", requires = IS_IN_SET(options))
-        selector = S3GroupedOptionsWidget(cols=2)
-        row = ("resource_selector__row",
-               "%s:" % labels.RESOURCES,
-               selector(dummy,
-                        list(selected_resources),
-                        _id="resource_selector"),
-               "")
-        fieldset = formstyle(form, [row])
-        form.append(fieldset)
+        #dummy = Storage(name="resources", requires = IS_IN_SET(options))
+        #selector = S3GroupedOptionsWidget(cols=2)
+        #row = ("resource_selector__row",
+               #"%s:" % labels.RESOURCES,
+               #selector(dummy,
+                        #list(selected_resources),
+                        #_id="resource_selector"),
+               #"")
+        #fieldset = formstyle(form, [row])
+        #form.append(fieldset)
 
         # Filters
         filter_form = S3FilterForm(filters, clear=False)
@@ -781,12 +747,13 @@ class subscriptions(S3CustomController):
                             _id="frequency_selector"),
                      ""))
 
-        rows.append(("method_selector__row",
-                     "%s:" % labels.NOTIFY_BY,
-                     selector(stable.method,
-                              subscription["method"],
-                              _id="method_selector"),
-                     ""))
+        # Deactivated: method selector
+        #rows.append(("method_selector__row",
+                     #"%s:" % labels.NOTIFY_BY,
+                     #selector(stable.method,
+                              #subscription["method"],
+                              #_id="method_selector"),
+                     #""))
 
         fieldset = formstyle(form, rows)
         fieldset.insert(0,
@@ -832,18 +799,24 @@ $('#subscription-form').submit(function() {
 
             listify = lambda x: None if not x else x if type(x) is list else [x]
 
-            subscribe = listify(formvars.resources)
-            if subscribe:
-                subscription["subscribe"] = \
-                        [r for idx, r in enumerate(resources)
-                           if str(idx) in subscribe]
+            # Fixed resource selection:
+            subscription["subscribe"] = [resources[0]]
+            # Alternatively, with resource selector:
+            #subscribe = listify(formvars.resources)
+            #if subscribe:
+                #subscription["subscribe"] = \
+                        #[r for idx, r in enumerate(resources)
+                           #if str(idx) in subscribe]
 
             subscription["filters"] = form.request_vars \
                                       .get("subscription-filters", None)
 
             subscription["notify_on"] = listify(formvars.notify_on)
             subscription["frequency"] = formvars.frequency
-            subscription["method"] = listify(formvars.method)
+            # Fixed method:
+            subscription["method"] = ["EMAIL"]
+            # Alternatively, with method selector:
+            #subscription["method"] = listify(formvars.method)
 
             success = self._update_subscription(subscription)
 
@@ -869,13 +842,13 @@ $('#subscription-form').submit(function() {
                 (stable.deleted != True)
         left = ftable.on(ftable.id == stable.filter_id)
         row = db(query).select(stable.id,
-                            stable.notify_on,
-                            stable.frequency,
-                            stable.method,
-                            ftable.id,
-                            ftable.query,
-                            left=left,
-                            limitby=(0, 1)).first()
+                               stable.notify_on,
+                               stable.frequency,
+                               #stable.method,
+                               ftable.id,
+                               ftable.query,
+                               left=left,
+                               limitby=(0, 1)).first()
 
         output = {"pe_id": pe_id}
                             
@@ -890,7 +863,9 @@ $('#subscription-form').submit(function() {
                     (rtable.deleted != True)
             rows = db(query).select(rtable.id,
                                     rtable.resource,
-                                    rtable.url)
+                                    rtable.url,
+                                    rtable.last_check_time,
+                                    rtable.next_check_time)
 
             if f.query:
                 filters = json.loads(f.query)
@@ -911,7 +886,7 @@ $('#subscription-form').submit(function() {
                            "resources": rows,
                            "notify_on": s.notify_on,
                            "frequency": s.frequency,
-                           "method": s.method,
+                           "method": ["EMAIL"] #s.method,
                           })
             
         else:
@@ -922,7 +897,7 @@ $('#subscription-form').submit(function() {
                            "resources": None,
                            "notify_on": stable.notify_on.default,
                            "frequency": stable.frequency.default,
-                           "method": stable.method.default
+                           "method": ["EMAIL"] #stable.method.default
                           })
 
         return output
@@ -953,11 +928,12 @@ $('#subscription-form').submit(function() {
         # Save subscription settings
         stable = s3db.pr_subscription
         subscription_id = subscription["id"]
+        frequency = subscription["frequency"]
         if not subscription_id:
             success = stable.insert(pe_id=pe_id,
                                     filter_id=filter_id,
                                     notify_on=subscription["notify_on"],
-                                    frequency=subscription["frequency"],
+                                    frequency=frequency,
                                     method=subscription["method"])
             subscription_id = success
         else:
@@ -965,7 +941,7 @@ $('#subscription-form').submit(function() {
                             pe_id=pe_id,
                             filter_id=filter_id,
                             notify_on=subscription["notify_on"],
-                            frequency=subscription["frequency"],
+                            frequency=frequency,
                             method=subscription["method"])
         if not success:
             return None
@@ -974,12 +950,21 @@ $('#subscription-form').submit(function() {
         rtable = s3db.pr_subscription_resource
         subscribe = subscription.get("subscribe")
         if subscribe:
+            from datetime import datetime, timedelta
+            now = datetime.utcnow()
             resources = subscription["resources"]
+
+            subscribed = {}
+            timestamps = {}
             if resources:
-                subscribed = dict(((r.resource, r.url), r.id)
-                                  for r in resources)
-            else:
-                subscribed = {}
+                for r in resources:
+                    subscribed[(r.resource, r.url)] = r.id
+                    timestamps[r.id] = (r.last_check_time,
+                                        r.next_check_time)
+                                    
+            intervals = s3db.pr_subscription_check_intervals
+            interval = timedelta(minutes=intervals.get(frequency, 0))
+                
             keep = set()
             fk = """{"subscription_id": %s}""" % subscription_id
             for new in subscribe:
@@ -996,10 +981,17 @@ $('#subscription-form').submit(function() {
                                             deleted_fk=None,
                                             subscription_id=subscription_id,
                                             resource=resource,
-                                            url=url)
+                                            url=url,
+                                            last_check_time=now,
+                                            next_check_time=None)
                 else:
                     # Keep it
-                    keep.add(subscribed[(resource, url)])
+                    record_id = subscribed[(resource, url)]
+                    last_check_time, next_check_time = timestamps[record_id]
+                    due = last_check_time + interval
+                    if next_check_time != due:
+                        db(rtable.id == record_id).update(next_check_time=due)
+                    keep.add(record_id)
                     
             # Unsubscribe all others
             unsubscribe = set(subscribed.values()) - keep
@@ -1012,4 +1004,27 @@ $('#subscription-form').submit(function() {
         subscription["filter_id"] = filter_id
         return subscription
         
+# =============================================================================
+class contact():
+    """
+        Custom page
+    """
+
+    def __call__(self):
+
+        view = path.join(current.request.folder, "private", "templates",
+                         THEME, "views", "contact.html")
+        try:
+            # Pass view as file not str to work in compiled mode
+            current.response.view = open(view, "rb")
+        except IOError:
+            from gluon.http import HTTP
+            raise HTTP("404", "Unable to open Custom View: %s" % view)
+
+        title = current.T("Contact Us")
+
+        return dict(title = title,
+                    )
+
+
 # END =========================================================================

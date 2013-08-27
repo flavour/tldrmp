@@ -593,6 +593,12 @@ class S3CMS(S3Method):
         request = current.request
         module = request.controller
         resource = request.function
+        
+        return self.resource_content(module, resource, widget_id)
+
+    # -------------------------------------------------------------------------
+    @staticmethod
+    def resource_content(module, resource, widget_id=None):
         db = current.db
         table = current.s3db.cms_post
         ltable = db.cms_post_module

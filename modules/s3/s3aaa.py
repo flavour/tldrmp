@@ -1447,11 +1447,17 @@ S3OptionsFilter({
 
         # Memberships
         elements = tree.getroot().xpath("/s3xml//resource[@name='auth_membership']/data[@field='pe_id']")
+        pe_values = set()
         for element in elements:
             pe_string = element.text
 
             if pe_string and "=" in pe_string:
                 pe_type, pe_value =  pe_string.split("=")
+                if pe_value in pe_values:
+                    # Don't check again
+                    continue
+                else:
+                    pe_values.add(pe_value)
                 pe_tablename, pe_field =  pe_type.split(".")
 
                 if pe_tablename == "org_organisation":
@@ -1459,7 +1465,7 @@ S3OptionsFilter({
                 else:
                     table = s3db[pe_tablename]
                 record = db(table[pe_field] == pe_value).select(table.pe_id,
-                                                                cache=cache,
+                                                                #cache=cache,
                                                                 limitby=(0, 1)
                                                                 ).first()
                 if record:
@@ -1474,11 +1480,17 @@ S3OptionsFilter({
 
         # Organisations
         elements = tree.getroot().xpath("/s3xml//resource[@name='auth_user']/data[@field='organisation_id']")
+        names = set()
         for element in elements:
             name = element.text
+            if name in names:
+                continue
+            else:
+                # Don't check again
+                names.add(name)
             if name:
                 record = db(otable.name == name).select(otable.id,
-                                                        cache=cache,
+                                                        #cache=cache,
                                                         limitby=(0, 1)
                                                         ).first()
                 if record:
@@ -1494,11 +1506,17 @@ S3OptionsFilter({
         elements = tree.getroot().xpath("/s3xml//resource[@name='auth_user']/data[@field='org_group_id']")
         if elements:
             gtable = s3db.org_group
+            names = set()
             for element in elements:
                 name = element.text
+                if name in names:
+                    # Don't check again
+                    continue
+                else:
+                    names.add(name)
                 if name:
                     record = db(gtable.name == name).select(gtable.id,
-                                                            cache=cache,
+                                                            #cache=cache,
                                                             limitby=(0, 1)
                                                             ).first()
                     if record:
@@ -1626,9 +1644,12 @@ S3OptionsFilter({
                                                     last_name = user.last_name,
                                                     email = user.email)
 
-        result = self.settings.mailer.send(to = approver,
-                                           subject = subject,
-                                           message = message)
+        if "@" in approver:
+            approver = [approver]
+        for each_approver in approver:
+            result = self.settings.mailer.send(to = each_approver,
+                                               subject = subject,
+                                               message = message)
         if not result:
             # Don't prevent registration just because email not configured
             #db.rollback()
@@ -2307,6 +2328,16 @@ S3OptionsFilter({
         if not approver:
             # Default Approver
             approver = deployment_settings.get_mail_approver()
+            if "@" not in approver:
+                utable = db.auth_user
+                mtable = db.auth_membership
+                gtable = db.auth_group
+                query = (gtable.uuid == approver) & \
+                        (gtable.id == mtable.group_id) & \
+                        (mtable.user_id == utable.id)
+                rows = db(query).select(utable.email,
+                                        distinct=True)
+                approver = [row.email for row in rows]
 
         return approver, organisation_id
 
