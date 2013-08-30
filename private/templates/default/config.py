@@ -215,8 +215,12 @@ settings.L10n.decimal_separator = "."
 # lon<0 have a duplicate at lon+360
 # lon>0 have a duplicate at lon-360
 #settings.gis.duplicate_features = True
+# Uncomment to hide Layer Properties tool
+#settings.gis.layer_properties = False
 # Uncomment to hide the Base Layers folder in the LayerTree
 #settings.gis.layer_tree_base = False
+# Uncomment to hide the Overlays folder in the LayerTree
+#settings.gis.layer_tree_overlays = False
 # Uncomment to not expand the folders in the LayerTree by default
 #settings.gis.layer_tree_expanded = False
 # Uncomment to have custom folders in the LayerTree use Radio Buttons

@@ -5768,6 +5768,8 @@ class MAP(DIV):
         # LayerTree
         if not settings.get_gis_layer_tree_base():
             options["hide_base"] = True
+        if not settings.get_gis_layer_tree_overlays():
+            options["hide_overlays"] = True
         if not settings.get_gis_layer_tree_expanded():
             options["folders_closed"] = True
         if settings.get_gis_layer_tree_radio():
@@ -5890,8 +5892,9 @@ class MAP(DIV):
                 options["draw_polygon"] = "inactive"
 
         # Layer Properties
-        # Presence of label turns feature on in s3.gis.js
-        i18n["gis_properties"] = T("Layer Properties")
+        if settings.get_gis_layer_properties():
+            # Presence of label turns feature on in s3.gis.js
+            i18n["gis_properties"] = T("Layer Properties")
 
         # Upload Layer
         if settings.get_gis_geoserver_password():

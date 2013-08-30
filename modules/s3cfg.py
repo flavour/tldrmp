@@ -295,7 +295,7 @@ class S3Config(Storage):
         return self.auth.get("record_approval", False)
     def get_auth_record_approval_required_for(self):
         """ Which tables record approval is required for """
-        return self.auth.get("record_approval_required_for", None)
+        return self.auth.get("record_approval_required_for", [])
 
     def get_auth_realm_entity(self):
         """ Hook to determine the owner entity of a record """
@@ -533,9 +533,17 @@ class S3Config(Storage):
         " Display Lat/Lon form fields when selecting Locations "
         return self.gis.get("latlon_selector", True)
 
+    def get_gis_layer_properties(self):
+        " Display Layer Properties Tool above Map's Layer Tree "
+        return self.gis.get("layer_properties", True)
+
     def get_gis_layer_tree_base(self):
         " Display Base Layers folder in the Map's Layer Tree "
         return self.gis.get("layer_tree_base", True)
+
+    def get_gis_layer_tree_overlays(self):
+        " Display Overlays folder in the Map's Layer Tree "
+        return self.gis.get("layer_tree_overlays", True)
 
     def get_gis_layer_tree_expanded(self):
         " Display folders in the Map's Layer Tree Open by default "
