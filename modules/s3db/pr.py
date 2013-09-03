@@ -2547,7 +2547,8 @@ class S3SubscriptionModel(S3Model):
         }
 
         MSG_CONTACT_OPTS = current.msg.MSG_CONTACT_OPTS
-        
+        FREQUENCY_OPTS = dict(frequency_opts)
+
         # ---------------------------------------------------------------------
         tablename = "pr_subscription"
         table = self.define_table(tablename,
@@ -2566,7 +2567,7 @@ class S3SubscriptionModel(S3Model):
                                                            zero=None),
                                         default="daily",
                                         represent=lambda opt: \
-                                                  frequency_opts.get(opt,
+                                                  FREQUENCY_OPTS.get(opt,
                                                                      UNKNOWN_OPT)),
                                   Field("method", "list:string",
                                         requires=IS_IN_SET(MSG_CONTACT_OPTS,

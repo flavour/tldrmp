@@ -201,6 +201,15 @@ form#summary-filter-form
     margin-top: 30px;
 }
 
+.horiz_filter_form.filter-manager-row {
+    float: right;
+    clear: left;
+}
+
+.fm-accept {
+    background: url(../../img/filter/save.png) no-repeat scroll 0 0 transparent !important;
+}
+
 /* Read & Update - Migrate to DRMP */ 
 #edit-btn {
     float: left;
@@ -232,4 +241,27 @@ form#summary-filter-form
 #sub_emailcontact_emailcontact_i_value_edit_none,
 #sub_emailcontact_emailcontact_i_value_edit_0 {
     width: 240px;
+}
+
+/* Filter Manager */
+
+/*.horiz_filter_form:first-child {
+    bottom: 14px;
+    float: right;
+    margin-top: 25px;
+    padding-bottom: 0;
+    position: absolute;
+    right: 0;
+ }
+ 
+ .horiz_filter_form {
+    padding-bottom: 40px;
+ }
+ 
+ .fm-accept{
+    background: url("../../img/filter/save.png") no-repeat scroll 0 0 transparent;
+}
+*/
+#summary-tabs #table {
+    padding-top: 120px;
 }

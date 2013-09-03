@@ -615,7 +615,12 @@ class subscriptions(S3CustomController):
         """ Main entry point, configuration """
 
         T = current.T
-        
+
+        # Must be logged in
+        auth = current.auth
+        if not auth.s3_logged_in():
+            auth.permission.fail()
+            
         # Available resources
         resources = [dict(resource="cms_post",
                           url="default/index/newsfeed",
@@ -635,7 +640,7 @@ class subscriptions(S3CustomController):
                                    _name="type-filter"),
                    S3LocationFilter("location_id",
                                     label=T("Location(s)"),
-                                    levels=["L1", "L2", "L3"],
+                                    levels=["L1"],
                                     widget="multiselect",
                                     cols=3,
                                     resource="cms_post",
@@ -887,7 +892,7 @@ $('#subscription-form').submit(function() {
                            "notify_on": s.notify_on,
                            "frequency": s.frequency,
                            "method": ["EMAIL"] #s.method,
-                          })
+                           })
             
         else:
             # Form defaults
@@ -898,7 +903,7 @@ $('#subscription-form').submit(function() {
                            "notify_on": stable.notify_on.default,
                            "frequency": stable.frequency.default,
                            "method": ["EMAIL"] #stable.method.default
-                          })
+                           })
 
         return output
 
@@ -966,7 +971,7 @@ $('#subscription-form').submit(function() {
             interval = timedelta(minutes=intervals.get(frequency, 0))
                 
             keep = set()
-            fk = """{"subscription_id": %s}""" % subscription_id
+            fk = '''{"subscription_id": %s}''' % subscription_id
             for new in subscribe:
                 resource, url = new["resource"], new["url"]
                 if (resource, url) not in subscribed:
@@ -988,9 +993,18 @@ $('#subscription-form').submit(function() {
                     # Keep it
                     record_id = subscribed[(resource, url)]
                     last_check_time, next_check_time = timestamps[record_id]
+                    data = {}
+                    if not last_check_time:
+                        # Someone has tampered with the timestamps, so
+                        # we need to reset them and start over
+                        last_check_time = now
+                        data["last_check_time"] = last_check_time
                     due = last_check_time + interval
                     if next_check_time != due:
-                        db(rtable.id == record_id).update(next_check_time=due)
+                        # Time interval has changed
+                        data["next_check_time"] = due
+                    if data:
+                        db(rtable.id == record_id).update(**data)
                     keep.add(record_id)
                     
             # Unsubscribe all others
