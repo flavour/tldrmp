@@ -211,11 +211,21 @@ OpenLayers.ProxyHost = S3.Ap.concat('/gis/proxy?url=');
 
     // Build the OpenLayers map
     var addMap = function(map_id, options) {
+
+        if (i18n.gis_name_map) {
+            // prevent the savePanel clickout handler from getting swallowed by the map
+            var fallThrough = true;
+        } else {
+            // Keep Defaults where we can
+            var fallThrough = false;
+        }
+
         var map_options = {
             // We will add these ourselves later for better control
             controls: [],
             displayProjection: proj4326,
             projection: options.projection_current,
+            fallThrough: fallThrough,
             // Use Manual stylesheet download (means can be done in HEAD to not delay pageload)
             theme: null,
             // This means that Images get hidden by scrollbars
@@ -2256,10 +2266,36 @@ OpenLayers.ProxyHost = S3.Ap.concat('/gis/proxy?url=');
         if (undefined != layer.desc) {
             legendTitle += '<div class="gis_legend_desc">' + layer.desc + '</div>';
         }
-        if ((undefined != layer.src) || (undefined != layer.src_url)) {
+        if (map.s3.options.metadata) {
+            // Use CMS to display Metadata
+            if (undefined != layer.post_id) {
+                // Link to the existing page
+                if (i18n.gis_metadata) {
+                    // Read-only view for end-users
+                    var label = i18n.gis_metadata;
+                    var murl = S3.Ap.concat('/cms/page/' + layer.post_id);
+                } else {
+                    // Edit view for Map Admins
+                    var label = i18n.gis_metadata_edit;
+                    var murl = S3.Ap.concat('/cms/post/' + layer.post_id + '/update?layer_id=' + layer.id);
+                }
+            } else if (i18n.gis_metadata_create) {
+                // Link to create new page
+                var label = i18n.gis_metadata_create;
+                var murl = S3.Ap.concat('/cms/post/create?layer_id=' + layer.id);
+            } else {
+                // Skip
+                var label = '';
+            }
+            if (label) {
+                source = '<div class="gis_legend_src"><a href="' + murl + '" target="_blank">' + label + '</a></div>';
+                legendTitle += source;
+            }
+        } else if ((undefined != layer.src) || (undefined != layer.src_url)) {
+            // Link to external source direct
             var source = '<div class="gis_legend_src">';
             if (undefined != layer.src_url) {
-                source += '<a href="' + layer.src_url + '" target="_blank">'
+                source += '<a href="' + layer.src_url + '" target="_blank">';
                 if (undefined != layer.src) {
                     source += layer.src;
                 } else {
@@ -3670,20 +3706,35 @@ OpenLayers.ProxyHost = S3.Ap.concat('/gis/proxy?url=');
             // (this happens when switching between full-screen & embedded)
             return;
         }
-        var name_display = '<div class="map_save_name">';
-        if (s3.options.config_name) {
-            name_display += s3.options.config_name;
+        var name_display = '<div class="fleft"><div class="map_save_name">';
+        var config_name = s3.options.config_name;
+        // Don't show if this is the default map
+        if (config_name) {
+            name_display += config_name;
         }
-        name_display += '</div>';
-        var div = '<div class="map_save_panel off"><div class="map_save_button">' + name_display + '<div class="map_save_label">' + i18n.gis_save_map + '</div></div></div>';
+        name_display += '</div></div>';
+        var div = '<div class="map_save_panel off">' + name_display + '<div class="map_save_button"><div class="map_save_label">' + i18n.gis_save_map + '</div></div></div>';
         $('#' + map_id).append(div);
+        if (config_name) {
+            $('#' + map_id + ' .map_save_panel').removeClass('off');
+        }
         // Click Handler
         $('#' + map_id + ' .map_save_button').click(function() {
-            $('#' + map_id + ' .map_save_panel').removeClass('off');
-            // Remove any 'saved' notification
-            $('#' + map_id + ' .map_save_panel .saved').remove();
-            nameConfig(map);
+            saveClickHandler(map);
         });
+    }
+
+    // Save Click Handler
+    var saveClickHandler = function(map) {
+        var map_id = map.s3.id;
+        $('#' + map_id + ' .map_save_panel').removeClass('off');
+        // Remove any 'saved' notification
+        $('#' + map_id + ' .map_save_panel .saved').remove();
+        // Show the Input
+        $('#' + map_id + ' .map_save_panel .fleft').show();
+        // Rename the Save button
+        $('#' + map_id + ' .map_save_label').html(i18n.save);
+        nameConfig(map);
     }
 
     // Name the Config
@@ -3706,15 +3757,13 @@ OpenLayers.ProxyHost = S3.Ap.concat('/gis/proxy?url=');
             var name_input = '<input id="' + input_id + '" value="' + name + '">';
             var hint = '<label for="' + input_id + '">' + i18n.gis_name_map + '</label>';
             name_input = '<div class="hint">' + hint + name_input + '</div>';
-            var form = '<div class="fleft">';
             if (config_id) {
                 var disabled = ''
             } else {
                 var disabled = ' disabled="disabled" checked="checked"'
             }
             var checkbox = '<input type="checkbox" class="checkbox"' + disabled + '>' + i18n.gis_new_map;
-            form += name_input + checkbox + '</div>';
-            save_button.before(form);
+            $('#' + map_id + ' .map_save_panel .fleft').html(name_input + checkbox);
             $('#' + map_id + ' .map_save_panel label').labelOver('over');
         }
         // Click Handler
@@ -3736,6 +3785,14 @@ OpenLayers.ProxyHost = S3.Ap.concat('/gis/proxy?url=');
             var div = '<div class="saved"><p><i>' + i18n.saved + '</i></p><p><a href="' + S3.Ap.concat('/gis/config') + pe_url + '">' + i18n.gis_my_maps + '</a></p></div>';
             $('#' + map_id + ' .map_save_panel .fleft').hide()
                                                        .before(div);
+            // Enable the 'Save as New Map' checkbox
+            $('#' + map_id + ' .map_save_panel .checkbox').prop('checked', false)
+                                                          .prop('disabled', false);
+            // Restore original click handler
+            save_button.unbind('click')
+                       .click(function() {
+                saveClickHandler(map);
+            });
         });
         // Cancel Handler
         var savePanel = $('#' + map_id + ' .map_save_panel');

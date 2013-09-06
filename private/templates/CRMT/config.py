@@ -114,6 +114,8 @@ settings.gis.geocode_imported_addresses = "google"
 settings.gis.toolbar = False
 # Hide unnecessary Toolbar items
 settings.gis.nav_controls = False
+# Uncomment to use CMS to provide Metadata on Map Layers
+settings.gis.layer_metadata = True
 # Uncomment to hide Layer Properties tool
 settings.gis.layer_properties = False
 # Uncomment to hide the Base Layers folder in the LayerTree
@@ -424,7 +426,7 @@ def customize_pr_person(**attr):
         if callable(standard_postp):
             output = standard_postp(r, output)
 
-        if r.interactive and r.method != "search_ac":
+        if r.interactive and isinstance(output, dict):
             output["rheader"] = ""
             actions = [dict(label=str(T("Open")),
                             _class="action-btn",
@@ -474,11 +476,10 @@ def customize_pr_person(**attr):
             #        action["restrict"] = restrict
             #    actions.append(action)
             s3.actions = actions
-            if isinstance(output, dict):
-                if "form" in output:
-                    output["form"].add_class("pr_person")
-                elif "item" in output and hasattr(output["item"], "add_class"):
-                    output["item"].add_class("pr_person")
+            if "form" in output:
+                output["form"].add_class("pr_person")
+            elif "item" in output and hasattr(output["item"], "add_class"):
+                output["item"].add_class("pr_person")
 
         return output
     s3.postp = custom_postp
@@ -1453,7 +1454,7 @@ def customize_vulnerability_risk(**attr):
             )
 
             s3db.configure(tablename,
-                           #crud_form = crud_form,
+                           crud_form = crud_form,
                            )
     
             if r.method == "summary":
