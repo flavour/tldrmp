@@ -38,7 +38,7 @@ datetime_represent = lambda dt: S3DateTime.datetime_represent(dt, utc=True)
 settings.auth.registration_requires_approval = True
 settings.auth.registration_requires_verification = False
 settings.auth.registration_requests_organisation = True
-settings.auth.registration_organisation_required = True
+#settings.auth.registration_organisation_required = True
 settings.auth.registration_requests_site = False
 
 # Approval emails get sent to all admins
@@ -1455,13 +1455,6 @@ def render_profile_posts(listid, resource, rfields, record, **attr):
         tag = "small"
 
     item = DIV(DIV(DIV(avatar,
-                       P(SMALL(" ", author, " ",
-                               A(organisation,
-                                 _href=org_url,
-                                 _class="card-organisation",
-                                 ),
-                               ),
-                         _class="citation"),
                        _class="span1"),
                    DIV(SPAN(A(location,
                               _href=location_url,
@@ -1473,6 +1466,13 @@ def render_profile_posts(listid, resource, rfields, record, **attr):
                        edit_bar,
                        P(body,
                          _class="card_comments"),
+                         P(SMALL(" ", author, " ",
+                               A(organisation,
+                                 _href=org_url,
+                                 _class="card-organisation",
+                                 ),
+                               ),
+                         _class="citation"),
                        docs,
                        _class="span5 card-details"),
                    _class="row",

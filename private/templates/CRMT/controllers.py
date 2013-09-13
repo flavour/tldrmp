@@ -3,6 +3,14 @@
 from os import path
 from urllib import urlencode
 
+try:
+    import json # try stdlib (Python 2.6)
+except ImportError:
+    try:
+        import simplejson as json # try external module
+    except:
+        import gluon.contrib.simplejson as json # fallback to pure-Python module
+
 from gluon import current, URL
 from gluon.html import *
 #from gluon.storage import Storage
@@ -170,8 +178,12 @@ class filters(S3CustomController):
         if not auth.user:
             permissions.fail()
 
-        pe_id = auth.user.pe_id
         fmt = permissions.format
+        
+        if current.request.env.request_method == "POST" and fmt != "dl":
+            return self.update()
+
+        pe_id = auth.user.pe_id
         s3 = current.response.s3
 
         # Filter
@@ -198,9 +210,17 @@ class filters(S3CustomController):
                                                             args="filters.dl"))
 
         # Title and view
+        T = current.T
         if fmt != "dl":
-            output["title"] = current.T("Saved Filters")
+            output["title"] = T("Saved Filters")
             self._view(THEME, "filters.html")
+
+        # Script for inline-editing of filter title
+        options = {"cssclass": "jeditable-input",
+                   "tooltip": str(T("Click to edit"))}
+        script = """$('.jeditable').editable('%s', %s);""" % \
+                 (URL(args="filters"), json.dumps(options))
+        s3.jquery_ready.append(script)
         return output
         
     # -------------------------------------------------------------------------
@@ -225,6 +245,7 @@ class filters(S3CustomController):
             item_id = "%s-%s" % (listid, record_id)
         else:
             # template
+            record_id = None
             item_id = "%s-[id]" % listid
 
         raw = record._row
@@ -279,7 +300,8 @@ class filters(S3CustomController):
                        _class="card-header"),
                    DIV(
                        DIV(H5(title,
-                              _class="media-heading"),
+                              _id="filter-title-%s" % record_id,
+                              _class="media-heading jeditable"),
                            DIV(query),
                            _class="media-body"),
                        _class="media"),
@@ -287,6 +309,27 @@ class filters(S3CustomController):
                    _id=item_id)
 
         return item
+
+    # -------------------------------------------------------------------------
+    def update(self):
+        """ Simple ajax method to update a saved filter title """
+
+        post_vars = current.request.post_vars
+
+        record_id = post_vars["id"].rsplit("-", 1)[-1]
+        new_title = post_vars["value"]
+
+        if new_title:
+            ftable = current.s3db.pr_filter
+            success = current.db(ftable.id==record_id) \
+                             .update(title=new_title)
+        else:
+            success = False
+            
+        if success:
+            return new_title
+        else:
+            raise HTTP(400)
 
     # -------------------------------------------------------------------------
     @staticmethod
