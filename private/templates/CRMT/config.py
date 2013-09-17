@@ -75,6 +75,28 @@ settings.security.map = True
 settings.auth.person_realm_human_resource_site_then_org = False
 
 # -----------------------------------------------------------------------------
+# Audit
+def audit_write(method, tablename, form, record, representation):
+    if not current.auth.user:
+        # Don't include prepop
+        return False
+    if tablename in ("org_facility",
+                     "org_organisation",
+                     "pr_filter",
+                     "project_activity",
+                     "stats_resident",
+                     "vulnerability_evac_route",
+                     "vulnerability_risk",
+                     ):
+        # Perform normal Audit
+        return True
+    else:
+        # Don't Audit non user-visible resources
+        return False
+
+settings.security.audit_write = audit_write
+
+# -----------------------------------------------------------------------------
 # Pre-Populate
 settings.base.prepopulate = ["CRMT"]
 
@@ -319,6 +341,7 @@ def customize_pr_person(**attr):
             # Hide Labels when just 1 column in inline form
             s3db.pr_contact.value.label = ""
 
+            s3db.pr_image.profile.default = True
             image_field = s3db.pr_image.image
             image_field.label = ""
             # ImageCrop widget doesn't currently work within an Inline Form
@@ -940,6 +963,68 @@ settings.ui.customize_org_group = customize_org_group
 #-----------------------------------------------------------------------------
 # Places (org_facility)
 #-----------------------------------------------------------------------------
+def facility_onaccept(form):
+    """
+        Custom onaccept for Imports:
+        * Auto-lookup of Coalition based on LatLon
+    """
+
+    # Check if we already have a Coalition
+    db = current.db
+    site_id = form.vars.site_id
+    ltable = current.s3db.org_site_org_group
+    exists = db(ltable.site_id == site_id).select(ltable.id, limitby=(0, 1))
+    if not exists:
+        # Have we got a LatLon?
+        location_id = form.vars.location_id
+        if location_id:
+            gtable = db.gis_location
+            location = db(gtable.id == location_id).select(gtable.lat,
+                                                           gtable.lon,
+                                                           limitby=(0, 1)
+                                                           ).first()
+            if location and location.lat is not None \
+                        and location.lon is not None:
+                # Read all the Coalition Polygons
+                ctable = db.org_group
+                query = (ctable.deleted == False) & \
+                        (ctable.location_id == gtable.id)
+                polygons = db(query).select(ctable.id,
+                                            gtable.wkt,
+                                            )
+                match = False
+                from shapely.geometry import point
+                from shapely.wkt import loads as wkt_loads
+                try:
+                    # Enable C-based speedups available from 1.2.10+
+                    from shapely import speedups
+                    speedups.enable()
+                except:
+                    s3_debug("S3GIS", "Upgrade Shapely for Performance enhancements")
+                pnt = point.Point(location.lon, location.lat)
+                for p in polygons:
+                    wkt = p[gtable].wkt
+                    if not wkt:
+                        continue
+                    poly = wkt_loads(wkt)
+                    match = pnt.intersects(poly)
+                    if match:
+                        break
+                if match:
+                    ltable.insert(group_id=p[ctable].id,
+                                  site_id=site_id,
+                                  )
+
+    # Normal onaccept:
+    # Update Affiliation, record ownership and component ownership
+    from s3db.org import S3FacilityModel
+    S3FacilityModel.org_facility_onaccept(form)
+
+# Ensure callback is accessible to CLI Imports as well as those going via Controller
+settings.base.import_callbacks = {"org_facility": {"onaccept": facility_onaccept,
+                                                   },
+                                  }
+
 def customize_org_facility(**attr):
     """
         Customize org_facility controller
