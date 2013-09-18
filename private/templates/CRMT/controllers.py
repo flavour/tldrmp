@@ -99,6 +99,7 @@ class index():
         #    scripts_append("/%s/static/scripts/S3/s3.dataLists.js" % appname)
         #else:
         #    scripts_append("/%s/static/scripts/S3/s3.dataLists.min.js" % appname)
+        scripts_append("/%s/static/themes/%s/js/homepage.js" % (appname, THEME))
 
         # Map
         auth = current.auth
@@ -212,7 +213,7 @@ def render_log(listid, resource, rfields, record, **attr):
         else:
             label = ""
         c, f = tablename.split("_")
-        url = URL(c=c, f=f, args=[record_id])
+        url = URL(c=c, f=f, args=[record_id, "read"])
         if tablename == "org_facility":
             if method == "create":
                 body = T("Added a Place")
@@ -243,6 +244,11 @@ def render_log(listid, resource, rfields, record, **attr):
                 body = T("Added a Hazard")
             elif method == "update":
                 body = T("Edited a Hazard")
+        elif tablename == "gis_config":
+            if method == "create":
+                body = T("Saved a Map")
+            elif method == "update":
+                body = T("Updated a Map")
 
     body = P(body,
              BR(),
