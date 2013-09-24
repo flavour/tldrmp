@@ -147,7 +147,9 @@ class S3Report2(S3Method):
         if pivottable is not None:
             pivotdata = pivottable.json(maxrows=maxrows,
                                         maxcols=maxcols,
-                                        url=r.url(method=""))
+                                        url=r.url(method="",
+                                                  representation="",
+                                                  vars={}))
         else:
             pivotdata = None
 
@@ -292,7 +294,9 @@ class S3Report2(S3Method):
         if pivottable is not None:
             pivotdata = pivottable.json(maxrows=maxrows,
                                         maxcols=maxcols,
-                                        url=r.url(method=""))
+                                        url=r.url(method="",
+                                                  representation="",
+                                                  vars={}))
         else:
             pivotdata = None
 
@@ -341,15 +345,15 @@ class S3ReportForm(object):
         T = current.T
 
         # Report options
-        report_options, hidden = self.report_options(get_vars = get_vars,
-                                                     widget_id = widget_id)
+        report_options = self.report_options(get_vars = get_vars,
+                                             widget_id = widget_id)
 
         # Pivot data
         if pivotdata is not None:
             labels = pivotdata["labels"]
         else:
             labels = None
-        hidden["pivotdata"] = json.dumps(pivotdata)
+        hidden = {"pivotdata": json.dumps(pivotdata)}
             
         empty = T("No report specified.")
         hide = T("Hide Table")
@@ -501,11 +505,10 @@ $("#%(widget_id)s").pivottable(%(opts)s);""" % {
 
         # Layer selector
         layer_id = "%s-fact" % widget_id
-        layer, hidden = self.layer_options(options=options,
+        layer, single = self.layer_options(options=options,
                                            get_vars=get_vars,
                                            widget_id=layer_id)
-        single_opt = {"_class": "pt-fact-single-option"} \
-                     if hidden else {}
+        single_opt = {"_class": "pt-fact-single-option"} if single else {}
         if layer:
             selectors.append(TR(label(FACT, _for=layer_id),
                                 TD(layer),
@@ -559,7 +562,7 @@ $("#%(widget_id)s").pivottable(%(opts)s);""" % {
                                   selectors,
                                   _id="%s-options" % widget_id)
 
-        return fieldset, hidden
+        return fieldset
 
     # -------------------------------------------------------------------------
     def axis_options(self, axis,
@@ -661,12 +664,13 @@ $("#%(widget_id)s").pivottable(%(opts)s);""" % {
         for layer in layers:
 
             # Extract layer option
-            if type(layer) is tuple and \
-               (isinstance(layer[0], lazyT) or layer[1] not in all_methods):
-                opt = [layer]
+            if type(layer) is tuple:
+                if isinstance(layer[0], lazyT):
+                    opt = [layer]
+                else:
+                    opt = list(layer)
             else:
-                opt = list(layer) \
-                      if isinstance(layer, (tuple, list)) else [layer]
+                opt = [layer]
 
             # Get field label and selector
             s = opt[0]
@@ -674,9 +678,15 @@ $("#%(widget_id)s").pivottable(%(opts)s);""" % {
                 label, selector = s
             else:
                 label, selector = None, s
-            selector = prefix(selector)
 
+            # Function-style layer
+            m = layer_pattern.match(selector)
+            if m is not None:
+                selector, method = m.group(2), m.group(1)
+                opt = [selector, method] + list(opt[1:])
+                
             # Resolve the selector
+            selector = prefix(selector)
             rfield = resource.resolve_selector(selector)
             if not rfield.field and not rfield.virtual:
                 continue
@@ -750,22 +760,27 @@ $("#%(widget_id)s").pivottable(%(opts)s);""" % {
                 selector = prefix(selector)
                 layer = "%s(%s)" % (method, selector)
 
-        # Field is read-only if there is only 1 option
         if len(layer_opts) == 1:
+            # Field is read-only if there is only 1 option
             default = layer_opts[0]
-            return default[1], {"fact": default[0]}
-
-        # Dummy field
-        dummy_field = Storage(name="fact",
-                              requires=IS_IN_SET(layer_opts))
-
-        # Construct widget
-        widget = OptionsWidget.widget(dummy_field,
-                                      layer,
-                                      _id=widget_id,
-                                      _name="fact",
-                                      _class="pt-fact")
-        return widget, {}
+            widget = TAG[""](default[1],
+                             INPUT(_type="hidden",
+                                   _id=widget_id,
+                                   _name=widget_id,
+                                   _value=default[0]))
+            single = True
+        else:
+            # Render Selector
+            dummy_field = Storage(name="fact",
+                                requires=IS_IN_SET(layer_opts))
+            widget = OptionsWidget.widget(dummy_field,
+                                          layer,
+                                          _id=widget_id,
+                                          _name="fact",
+                                          _class="pt-fact")
+            single = False
+            
+        return widget, single
 
     # -------------------------------------------------------------------------
     @staticmethod

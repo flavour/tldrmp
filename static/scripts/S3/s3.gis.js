@@ -21,7 +21,7 @@ OpenLayers.Util.onImageLoadErrorColor = 'transparent';
 OpenLayers.ProxyHost = S3.Ap.concat('/gis/proxy?url=');
 
 // Module pattern to hide internal vars
-(function () {
+(function() {
 
     // Module scope
     var format_geojson = new OpenLayers.Format.GeoJSON();
@@ -62,7 +62,7 @@ OpenLayers.ProxyHost = S3.Ap.concat('/gis/proxy?url=');
         var projection_current = new OpenLayers.Projection('EPSG:' + projection);
         options.projection_current = projection_current;
         if (projection == 900913) {
-            options.maxExtent = new OpenLayers.Bounds(-20037508, -20037508, 20037508, 20037508.34);
+            options.maxExtent = new OpenLayers.Bounds(-20037508.34, -20037508.34, 20037508.34, 20037508.34);
             options.maxResolution = 156543.0339;
             options.units = 'm';
         } else if (projection == 4326) {
@@ -753,12 +753,15 @@ OpenLayers.ProxyHost = S3.Ap.concat('/gis/proxy?url=');
         }
 
         var layerTree = new Ext.tree.TreePanel({
+            //cls: 'gis_layer_tree',
+            //height: options.map_height,
             title: i18n.gis_layers,
             loader: new Ext.tree.TreeLoader({applyLoader: false}),
             root: treeRoot,
             rootVisible: false,
             split: true,
-            autoScroll: true,
+            //autoScroll: true,
+            //containerScroll: true,
             collapsible: collapsible,
             collapseMode: 'mini',
             lines: false,
@@ -3823,7 +3826,7 @@ OpenLayers.ProxyHost = S3.Ap.concat('/gis/proxy?url=');
             options.config_name = name;
             if (options.pe_id) {
                 // Normal user
-                var pe_url = '/?~.pe_id=' + options.pe_id;
+                var pe_url = '?~.pe_id__belongs=' + options.pe_id;
             } else {
                 // Map Admin
                 var pe_url = '';
