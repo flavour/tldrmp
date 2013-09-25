@@ -22,6 +22,7 @@ h2.summary {
     margin: 15px;
     padding: 4px 6px;
     float: left;
+    z-index: 1000; /* Push above alert-space: Not working :/ */
 }
 
 .ui-tabs {
@@ -54,6 +55,10 @@ h2.summary {
     margin-top: 125px;
 }
 
+#summary-tab-headers li {
+    z-index: 1000; /* Push above alert-space */
+}
+
 #summary-tabs .ui-tabs-nav {
     border: none;
     margin: 0 10px 0 0;
@@ -83,6 +88,11 @@ h2.summary {
 
 #table select {
     width: auto;
+}
+
+#summary-tabs #table #table-container th,
+#summary-tabs #table #table-container tr td {
+    border-left: 1px solid #d9d8d8;
 }
 
 #summary-tabs #map {
@@ -218,6 +228,13 @@ form#summary-filter-form
 /* Read & Update - Migrate to DRMP */ 
 #edit-btn {
     float: left;
+}
+
+.ui-multiselect-all span,
+.ui-multiselect-none span,
+.filter-clear.action-lnk {
+    text-decoration: underline;
+    color: #0088CC;
 }
 
 /* Register screen */
