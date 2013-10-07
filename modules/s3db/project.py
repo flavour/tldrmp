@@ -163,7 +163,7 @@ class S3ProjectModel(S3Model):
             msg_list_empty = T("No Statuses currently registered"))
 
         # Reusable Field
-        represent = S3Represent(lookup=tablename)
+        represent = S3Represent(lookup=tablename, translate=True)
                                 #none = T("Unknown"))
         status_id = S3ReusableField("status_id", table,
                                     label = T("Status"),
@@ -675,7 +675,8 @@ class S3ProjectModel(S3Model):
         query = (table.deleted != True) & \
                 (table.project_id == project_id)
         sum_field = table.amount.sum()
-        return current.db(query).select(sum_field).first()[sum_field]
+        return current.db(query).select(sum_field).first()[sum_field] or \
+               current.messages["NONE"]
 
     # -------------------------------------------------------------------------
     @staticmethod
@@ -1448,7 +1449,7 @@ class S3ProjectActivityTypeModel(S3Model):
         )
 
         # Reusable Fields
-        represent = S3Represent(lookup=tablename)
+        represent = S3Represent(lookup=tablename, translate=True)
         activity_type_id = S3ReusableField("activity_type_id", table,
                                            sortby = "name",
                                            requires = IS_NULL_OR(
@@ -1738,7 +1739,9 @@ class S3ProjectBeneficiaryModel(S3Model):
                              super_link("parameter_id", "stats_parameter",
                                         label = T("Beneficiary Type"),
                                         instance_types = ["project_beneficiary_type"],
-                                        represent = S3Represent(lookup="stats_parameter"),
+                                        represent = S3Represent(lookup="stats_parameter",
+                                                                translate=True,
+                                                                ),
                                         readable = True,
                                         writable = True,
                                         empty = False,
@@ -2480,14 +2483,20 @@ class S3ProjectHazardModel(S3Model):
 
         crud_strings = current.response.s3.crud_strings
         define_table = self.define_table
+        NONE = current.messages["NONE"]
 
         # ---------------------------------------------------------------------
         # Hazard
         #
         tablename = "project_hazard"
         table = define_table(tablename,
-                             Field("name", length=128, notnull=True, unique=True,
+                             Field("name",
+                                   length=128,
+                                   notnull=True,
+                                   unique=True,
                                    label=T("Name"),
+                                   represent=lambda v: T(v) if v is not None \
+                                                            else NONE,
                                    ),
                              s3_comments(),
                              *s3_meta_fields())
@@ -2510,7 +2519,7 @@ class S3ProjectHazardModel(S3Model):
             msg_list_empty = T("No Hazards currently registered"))
 
         # Reusable Field
-        represent = S3Represent(lookup=tablename)
+        represent = S3Represent(lookup=tablename, translate=True)
         hazard_id = S3ReusableField("hazard_id", table,
                                     sortby = "name",
                                     label = T("Hazards"),
@@ -2684,7 +2693,7 @@ class S3ProjectLocationModel(S3Model):
                     label_list_button = T("List Locations"),
                     label_create_button = ADD_LOCATION,
                     msg_record_created = T("Location Added"),
-                    msg_record_modified = T("Location Updated"),
+                    msg_record_modified = T("Location updated"),
                     msg_record_deleted = T("Location Deleted"),
                     msg_list_empty = T("No Locations Found")
             )
@@ -3380,13 +3389,20 @@ class S3ProjectThemeModel(S3Model):
         define_table = self.define_table
         theme_percentages = current.deployment_settings.get_project_theme_percentages()
 
+        NONE = current.messages["NONE"]
+
         # ---------------------------------------------------------------------
         # Themes
         #
         tablename = "project_theme"
         table = define_table(tablename,
-                             Field("name", length=128, notnull=True, unique=True,
-                                   label = T("Name"),
+                             Field("name",
+                                   length=128,
+                                   notnull=True,
+                                   unique=True,
+                                   label=T("Name"),
+                                   represent=lambda v: T(v) if v is not None \
+                                                       else NONE,
                                    ),
                              s3_comments(),
                              *s3_meta_fields())
@@ -3409,7 +3425,7 @@ class S3ProjectThemeModel(S3Model):
             msg_list_empty = T("No Themes currently registered"))
 
         # Reusable Field
-        represent = S3Represent(lookup=tablename)
+        represent = S3Represent(lookup=tablename, translate=True)
         theme_id = S3ReusableField("theme_id", table,
                                    label = T("Theme"),
                                    sortby = "name",
@@ -5730,7 +5746,7 @@ def project_rheader(r):
 
     elif resourcename == "activity":
         tabs = [(T("Details"), None),
-                (T("Contact Persons"), "contact")]
+                (T("Contact People"), "contact")]
         if settings.get_project_mode_task():
             tabs.append((T("Tasks"), "task"))
             tabs.append((attachments_label, "document"))
@@ -5811,7 +5827,7 @@ def project_rheader(r):
             location = ""
 
         if record.created_by:
-            creator = TR(TH("%s: " % T("Created by")),
+            creator = TR(TH("%s: " % T("Created By")),
                          s3_auth_user_represent(record.created_by),
                          )
         else:
