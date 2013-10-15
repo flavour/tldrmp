@@ -72,7 +72,7 @@ class S3MainMenu(default.S3MainMenu):
                 MM("Received Shipments", c="inv", f="recv"),
                 MM("Sent Shipments", c="inv", f="send"),
                 MM("Items", c="supply", f="item"),
-                MM("Item Catalogues", c="supply", f="catalog"),
+                MM("Item Catalogs", c="supply", f="catalog"),
                 MM("Item Categories", c="supply", f="item_category"),
                 M("Requests", c="req", f="req")(),
                 #M("Commitments", f="commit")(),
@@ -95,6 +95,10 @@ class S3MainMenu(default.S3MainMenu):
             homepage("event", "irs")(
                 MM("Events", c="event", f="event"),
                 MM("Incident Reports", c="irs", f="ireport"),
+            ),
+            homepage("deploy", name="RDRT")(
+                MM("Deployments", c="deploy", f="deployment"),
+                MM("Members", c="deploy", f="human_resource"),
             ),
         ]
 
@@ -689,7 +693,19 @@ class S3OptionsMenu(default.S3OptionsMenu):
 
         # Same as IRS
         return self.irs()
-    
+
+    # -------------------------------------------------------------------------
+    def deploy(self):
+        """ RDRT Alerting and Deployments """
+
+        return M()(
+                   M("Deployments",
+                     c="deploy", f="deployment",
+                   ),
+                   M("Members",
+                     c="deploy", f="human_resource", m="summary"
+                   ),
+               )
 
 # END =========================================================================
 
