@@ -166,7 +166,6 @@ def _newsfeed():
                                        ),
                       S3OptionsFilter("created_by$organisation_id",
                                       label=T("Filter by Organization"),
-                                      represent="%(name)s",
                                       widget="multiselect",
                                       hidden=True,
                                       ),
