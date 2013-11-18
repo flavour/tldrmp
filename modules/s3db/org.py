@@ -28,12 +28,14 @@
 """
 
 __all__ = ["S3OrganisationModel",
+           "S3OrganisationBranchModel",
            "S3OrganisationGroupModel",
            "S3OrganisationLocationModel",
            "S3OrganisationResourceModel",
            "S3OrganisationSectorModel",
            "S3OrganisationServiceModel",
            "S3OrganisationSummaryModel",
+           "S3OrganisationTeamModel",
            "S3OrganisationTypeTagModel",
            "S3SiteModel",
            "S3SiteDetailsModel",
@@ -83,7 +85,6 @@ class S3OrganisationModel(S3Model):
              "org_region",
              "org_organisation",
              "org_organisation_id",
-             "org_organisation_branch",
              "org_organisation_user",
              "org_organisation_represent",
              ]
@@ -491,6 +492,13 @@ class S3OrganisationModel(S3Model):
                           org_organisation=dict(name="summary",
                                                 joinby="organisation_id"))
 
+        # Needs
+        add_component("req_organisation_needs",
+                      org_organisation = dict(name="needs",
+                                              joinby="organisation_id",
+                                              multiple=False,
+                                              ))
+
         # Requests
         #add_component("req_req",
         #              org_organisation = "donated_by_id")
@@ -500,63 +508,26 @@ class S3OrganisationModel(S3Model):
         #add_component(db.auth_user,
         #              org_organisation="organisation_id")
 
-        if use_branches:
-            # Branches
-            add_component("org_organisation",
-                          org_organisation=dict(name="branch",
-                                                link="org_organisation_branch",
-                                                joinby="organisation_id",
-                                                key="branch_id",
-                                                actuate="embed",
-                                                autocomplete="name",
-                                                autodelete=True))
+        # Branches
+        add_component("org_organisation",
+                      org_organisation=dict(name="branch",
+                                            link="org_organisation_branch",
+                                            joinby="organisation_id",
+                                            key="branch_id",
+                                            actuate="embed",
+                                            autocomplete="name",
+                                            autodelete=True))
 
-            # For imports
-            add_component("org_organisation",
-                          org_organisation=dict(name="parent",
-                                                link="org_organisation_branch",
-                                                joinby="branch_id",
-                                                key="organisation_id",
-                                                actuate="embed",
-                                                autocomplete="name",
-                                                autodelete=False))
+        # For imports
+        add_component("org_organisation",
+                      org_organisation=dict(name="parent",
+                                            link="org_organisation_branch",
+                                            joinby="branch_id",
+                                            key="organisation_id",
+                                            actuate="embed",
+                                            autocomplete="name",
+                                            autodelete=False))
 
-            # ---------------------------------------------------------------------
-            # Organisation Branches
-            #
-            tablename = "org_organisation_branch"
-            table = define_table(tablename,
-                                 organisation_id(ondelete="CASCADE"),
-                                 organisation_id("branch_id",
-                                                 label=T("Branch"),
-                                                 default=None,
-                                                 ondelete="CASCADE"),
-                                 *s3_meta_fields())
-
-            # CRUD strings
-            ADD_BRANCH = T("Add Branch Organization")
-            crud_strings[tablename] = Storage(
-                title_create=ADD_BRANCH,
-                title_display=T("Branch Organization Details"),
-                title_list=T("Branch Organizations"),
-                title_update=T("Edit Branch Organization"),
-                title_search=T("Search Branch Organizations"),
-                #title_upload=T("Import Branch Organizations"),
-                subtitle_create=T("Add New Branch Organization"),
-                label_list_button=T("List Branch Organizations"),
-                label_create_button=T("Add New Branch"),
-                label_delete_button=T("Delete Branch"),
-                msg_record_created=T("Branch Organization added"),
-                msg_record_modified=T("Branch Organization updated"),
-                msg_record_deleted=T("Branch Organization deleted"),
-                msg_list_empty=T("No Branch Organizations currently registered"))
-
-            configure(tablename,
-                      deduplicate=self.org_branch_duplicate,
-                      onaccept=self.org_branch_onaccept,
-                      onvalidation=self.org_branch_onvalidation,
-                      ondelete=self.org_branch_ondelete,
-                      )
 
         # ---------------------------------------------------------------------
         # Organisation <-> User
@@ -568,7 +539,9 @@ class S3OrganisationModel(S3Model):
                              organisation_id(),
                              *s3_meta_fields())
 
+        # ---------------------------------------------------------------------
         # Pass names back to global scope (s3.*)
+        #
         return dict(org_organisation_type_id=organisation_type_id,
                     org_organisation_id=organisation_id,
                     org_organisation_represent=org_organisation_represent,
@@ -836,6 +809,62 @@ class S3OrganisationModel(S3Model):
         response.headers["Content-Type"] = "application/json"
         return output
 
+# =============================================================================
+class S3OrganisationBranchModel(S3Model):
+    """
+        Organisation Branches
+    """
+
+    names = ["org_organisation_branch"]
+
+    def model(self):
+
+        T = current.T
+        db = current.db
+
+        configure = self.configure
+        crud_strings = current.response.s3.crud_strings
+        define_table = self.define_table
+
+        organisation_id = self.org_organisation_id
+
+        # ---------------------------------------------------------------------
+        # Organisation Branches
+        #
+        tablename = "org_organisation_branch"
+        table = define_table(tablename,
+                             organisation_id(ondelete="CASCADE"),
+                             organisation_id("branch_id",
+                                             label=T("Branch"),
+                                             default=None,
+                                             ondelete="CASCADE"),
+                             *s3_meta_fields())
+
+        # CRUD strings
+        ADD_BRANCH = T("Add Branch Organization")
+        crud_strings[tablename] = Storage(
+            title_create=ADD_BRANCH,
+            title_display=T("Branch Organization Details"),
+            title_list=T("Branch Organizations"),
+            title_update=T("Edit Branch Organization"),
+            title_search=T("Search Branch Organizations"),
+            #title_upload=T("Import Branch Organizations"),
+            subtitle_create=T("Add New Branch Organization"),
+            label_list_button=T("List Branch Organizations"),
+            label_create_button=T("Add New Branch"),
+            label_delete_button=T("Delete Branch"),
+            msg_record_created=T("Branch Organization added"),
+            msg_record_modified=T("Branch Organization updated"),
+            msg_record_deleted=T("Branch Organization deleted"),
+            msg_list_empty=T("No Branch Organizations currently registered"))
+
+        configure(tablename,
+                    deduplicate=self.org_branch_duplicate,
+                    onaccept=self.org_branch_onaccept,
+                    onvalidation=self.org_branch_onvalidation,
+                    ondelete=self.org_branch_ondelete,
+                    )
+
     # -----------------------------------------------------------------------------
     @staticmethod
     def org_branch_duplicate(item):
@@ -898,7 +927,7 @@ class S3OrganisationModel(S3Model):
 
         left = [otable.on(ltable.organisation_id == otable.id),
                 btable.on(ltable.branch_id == btable.id)]
-        
+
         record = db(ltable.id == id).select(
                     ltable.branch_id,
                     ltable.organisation_id,
@@ -1786,6 +1815,30 @@ class S3OrganisationSummaryModel(S3Model):
         return dict()
 
 # =============================================================================
+class S3OrganisationTeamModel(S3Model):
+    """
+        Link table between Organisations & Teams
+    """
+
+    names = ["org_organisation_team"]
+
+    def model(self):
+
+        T = current.T
+
+        # ---------------------------------------------------------------------
+        # Link table between Organisations & Teams
+        #
+        tablename = "org_organisation_team"
+        table = self.define_table(tablename,
+                                  self.org_organisation_id(ondelete="CASCADE"),
+                                  self.pr_group_id(ondelete="CASCADE"),
+                                  *s3_meta_fields())
+
+        # Pass names back to global scope (s3.*)
+        return dict()
+
+# =============================================================================
 class S3OrganisationTypeTagModel(S3Model):
     """
         Organisation Type Tags
@@ -1836,6 +1889,9 @@ class S3SiteModel(S3Model):
         T = current.T
         auth = current.auth
 
+        add_component = self.add_component
+        set_method = self.set_method
+
         # =====================================================================
         # Site / Facility (ICS terminology)
         #
@@ -1870,6 +1926,7 @@ class S3SiteModel(S3Model):
                                         default=False,
                                         readable=False,
                                         writable=False),
+                                  Field("comments", "text"),
                                   *s3_ownerstamp())
 
         # ---------------------------------------------------------------------
@@ -1897,13 +1954,23 @@ class S3SiteModel(S3Model):
                                   comment=comment
                                   )
 
+        # Custom Method for S3SiteAutocompleteWidget
+        set_method("org", "site",
+                   method="search_ac",
+                   action=self.site_search_ac)
+
         # Custom Method for S3SiteAddressAutocompleteWidget
-        self.set_method("org", "site",
-                        method="search_address_ac",
-                        action=self.site_search_address_ac)
+        set_method("org", "site",
+                   method="search_address_ac",
+                   action=self.site_search_address_ac)
+
+        # Custom Method for S3AddPersonWidget2
+        # @ToDo: One for HRMs
+        set_method("org", "site",
+                   method="site_contact_person",
+                   action=self.site_contact_person)
 
         # Components
-        add_component = self.add_component
 
         # Facility Types
         # Format for S3SQLInlineComponentCheckbox
@@ -1946,6 +2013,13 @@ class S3SiteModel(S3Model):
         add_component("proc_plan",
                       org_site="site_id")
 
+        # Needs
+        add_component("req_site_needs",
+                      org_site = dict(name="needs",
+                                      joinby="site_id",
+                                      multiple=False,
+                                      ))
+
         # Requests
         add_component("req_req",
                       org_site="site_id")
@@ -1961,6 +2035,10 @@ class S3SiteModel(S3Model):
                                     multiple=False))
         self.configure(tablename,
                        onaccept=self.org_site_onaccept,
+                       context = {"location": "location_id",
+                                  "organisation": "organisation_id",
+                                  "org_group": "organisation_id$group_membership.group_id",
+                                  },
                        list_fields=["id",
                                     "code",
                                     "instance_type",
@@ -2084,6 +2162,125 @@ class S3SiteModel(S3Model):
 
     # -------------------------------------------------------------------------
     @staticmethod
+    def site_contact_person(r, **attr):
+        """
+            JSON lookup method for S3AddPersonWidget2
+        """
+
+        site_id = r.id
+        if not site_id:
+            output = current.xml.json_message(False, 400, "No id provided!")
+            raise HTTP(400, body=output)
+
+        db = current.db
+        s3db = current.s3db
+        ltable = s3db.hrm_human_resource_site
+        htable = db.hrm_human_resource
+        query = (ltable.site_id == site_id) & \
+                (ltable.site_contact == True) & \
+                (ltable.human_resource_id == htable.id)
+        person = db(query).select(htable.person_id,
+                                  limitby=(0, 1)).first()
+
+        if person:
+            fake = Storage(id = person.person_id,
+                           tablename = "org_site",
+                           )
+            return s3db.pr_person_lookup(fake, **attr)
+        else:
+            current.response.headers["Content-Type"] = "application/json"
+            output = json.dumps(None)
+            return output
+
+    # -------------------------------------------------------------------------
+    @staticmethod
+    def site_search_ac(r, **attr):
+        """
+            JSON search method for S3SiteAutocompleteWidget
+
+            @param r: the S3Request
+            @param attr: request attributes
+        """
+
+        response = current.response
+        resource = r.resource
+
+        # Query comes in pre-filtered to accessible & deletion_status
+        # Respect response.s3.filter
+        resource.add_filter(response.s3.filter)
+
+        _vars = current.request.get_vars
+
+        # JQueryUI Autocomplete uses "term" instead of "value"
+        # (old JQuery Autocomplete uses "q" instead of "value")
+        value = _vars.term or _vars.value or _vars.q or None
+
+        # We want to do case-insensitive searches
+        # (default anyway on MySQL/SQLite, but not PostgreSQL)
+        value = value.lower().strip()
+
+        filter = _vars.get("filter", None)
+
+        if filter and value:
+            if filter == "~":
+                query = (S3FieldSelector("name").lower().like(value + "%"))
+            else:
+                output = current.xml.json_message(False, 400,
+                                "Unsupported filter! Supported filters: ~")
+                raise HTTP(400, body=output)
+        else:
+            output = current.xml.json_message(False, 400,
+                            "Missing options! Require: filter & value")
+            raise HTTP(400, body=output)
+
+        resource.add_filter(query)
+
+        settings = current.deployment_settings
+        MAX_SEARCH_RESULTS = settings.get_search_max_results()
+        limit = int(_vars.limit or MAX_SEARCH_RESULTS)
+        if (not limit or limit > MAX_SEARCH_RESULTS) and resource.count() > MAX_SEARCH_RESULTS:
+            output = jsons([dict(id="",
+                                 name="Search results are over %d. Please input more characters." \
+                                 % MAX_SEARCH_RESULTS)])
+        else:
+            s3db = current.s3db
+
+            # Fields to return
+            fields = ["site_id",
+                      "name",
+                      ]
+
+            fields += settings.get_org_site_autocomplete_fields()
+
+            rows = resource.select(fields,
+                                   start=0,
+                                   limit=limit,
+                                   orderby="name",
+                                   as_rows=True)
+            output = []
+            append = output.append
+            for row in rows:
+                instance_type = row.get("org_site.instance_type", None)
+                location = row.get("gis_location", None)
+                org = row.get("org_organisation.name", None)
+                row = row.org_site
+                record = dict(id = row.site_id,
+                              name = row.name,
+                              )
+                if instance_type:
+                    record["instance_type"] = instance_type
+                if location:
+                    record["location"] = location
+                if org:
+                    record["org"] = org
+                append(record)
+            output = jsons(output)
+
+        response.headers["Content-Type"] = "application/json"
+        return output
+
+    # -------------------------------------------------------------------------
+    @staticmethod
     def site_search_address_ac(r, **attr):
         """
             JSON search method for S3SiteAddressAutocompleteWidget
@@ -2094,7 +2291,6 @@ class S3SiteModel(S3Model):
 
         response = current.response
         resource = r.resource
-        table = resource.table
 
         # Query comes in pre-filtered to accessible & deletion_status
         # Respect response.s3.filter
@@ -2111,18 +2307,20 @@ class S3SiteModel(S3Model):
         # (default anyway on MySQL/SQLite, but not PostgreSQL)
         value = value.lower().strip()
 
-        filter = _vars.filter
+        filter = _vars.get("filter", None)
 
         if filter and value:
-
             if filter == "~":
                 query = (S3FieldSelector("name").lower().like(value + "%")) | \
                         (S3FieldSelector("location_id$address").lower().like(value + "%"))
-
             else:
                 output = current.xml.json_message(False, 400,
                                 "Unsupported filter! Supported filters: ~")
                 raise HTTP(400, body=output)
+        else:
+            output = current.xml.json_message(False, 400,
+                            "Missing options! Require: filter & value")
+            raise HTTP(400, body=output)
 
         resource.add_filter(query)
 
@@ -2136,21 +2334,25 @@ class S3SiteModel(S3Model):
             s3db = current.s3db
 
             # Fields to return
-            fields = ["site_id", "name", "location_id$address"]
-            rows = resource.select([f.name for f in fields],
+            fields = ["site_id",
+                      "name",
+                      "location_id$address",
+                      ]
+            rows = resource.select(fields,
                                    start=0,
                                    limit=limit,
-                                   orderby=field,
+                                   orderby="name",
                                    as_rows=True)
             output = []
             append = output.append
             for row in rows:
                 address = row.gis_location.address
+                row = row.org_site
+                record = dict(id = row.site_id,
+                              name = row.name,
+                              )
                 if address:
-                    name = "%s, %s" % (row.org_site.name, address)
-                else:
-                    name = row.org_site.name
-                record = dict(id = row.org_site.site_id, name = name)
+                    record["address"] = address
                 append(record)
             output = jsons(output)
 
@@ -2511,7 +2713,10 @@ class S3FacilityModel(S3Model):
 
         configure(tablename,
                   super_entity=("org_site", "doc_entity", "pr_pentity"),
-                  context = {"org_group": "organisation_id$group_membership.group_id",
+                  context = {"location": "location_id",
+                             "organisation": "organisation_id",
+                             "org_group": "organisation_id$group_membership.group_id",
+                             "request": "req.id",
                              },
                   crud_form = crud_form,
                   deduplicate = self.org_facility_duplicate,
@@ -3135,6 +3340,7 @@ class S3OfficeModel(S3Model):
                                ],
                   context = {"location": "location_id",
                              "organisation": "organisation_id",
+                             "org_group": "organisation_id$group_membership.group_id",
                              },
                   realm_components=["contact_emergency",
                                     "config",
@@ -3554,8 +3760,9 @@ class org_OrganisationRepresent(S3Represent):
         """
 
         db = current.db
-        otable = current.s3db.org_organisation
-        btable = db.org_organisation_branch
+        s3db = current.s3db
+        otable = s3db.org_organisation
+        btable = s3db.org_organisation_branch
         ptable = db.org_organisation.with_alias("org_parent_organisation")
 
         left = [btable.on(btable.branch_id == otable.id),
@@ -3611,10 +3818,14 @@ class org_SiteRepresent(S3Represent):
     def __init__(self,
                  translate=False,
                  show_link=False,
-                 multiple=False):
+                 multiple=False,
+                 show_type=True,
+                 ):
 
-        # Need a custom lookup
-        self.lookup_rows = self.custom_lookup_rows
+        self.show_type = show_type
+        if show_type or show_link:
+            # Need a custom lookup
+            self.lookup_rows = self.custom_lookup_rows
         # Need a custom representation
         fields = ["name"]
 
@@ -3770,19 +3981,20 @@ class org_SiteRepresent(S3Represent):
         """
 
         name = row["org_site.name"]
-        instance_type = row["org_site.instance_type"]
-        facility_type = row.get("org_facility_type.name", None)
-
         if not name:
             return self.default
 
-        if facility_type:
-            # These need to be translated
-            name = "%s (%s)" % (name, current.T(facility_type))
-        else:
-            instance_type = current.auth.org_site_types.get(instance_type, None)
-            if instance_type:
-                name = "%s (%s)" % (name, instance_type)
+        if self.show_type:
+            instance_type = row["org_site.instance_type"]
+            facility_type = row.get("org_facility_type.name", None)
+
+            if facility_type:
+                # These need to be translated
+                name = "%s (%s)" % (name, current.T(facility_type))
+            else:
+                instance_type = current.auth.org_site_types.get(instance_type, None)
+                if instance_type:
+                    name = "%s (%s)" % (name, instance_type)
 
         return s3_unicode(name)
 
@@ -3849,35 +4061,42 @@ def org_rheader(r, tabs=[]):
     if tablename == "org_organisation":
         # Tabs
         if not tabs:
-            tabs = [(T("Basic Details"), None),
-                    (T("Branches"), "branch"),
-                    (T("Offices"), "office"),
-                    (T("Warehouses"), "warehouse"),
-                    (T("Facilities"), "facility"),
-                    (T("Staff & Volunteers"), "human_resource"),
-                    (T("Assets"), "asset"),
-                    (T("Projects"), "project"),
-                    (T("User Roles"), "roles"),
-                    #(T("Tasks"), "task"),
-                    ]
+            skip_branches = False
+            
             # If a filter is being applied to the Organisations, amend the tabs accordingly
             type_filter = current.request.get_vars.get("organisation.organisation_type_id$name",
                                                        None)
             if type_filter:
                 if type_filter == "Supplier":
+                    skip_branches = True
                     tabs = [(T("Basic Details"), None),
                             (T("Offices"), "office"),
                             (T("Warehouses"), "warehouse"),
                             (T("Contacts"), "human_resource"),
-                            ]
+                           ]
                 elif type_filter == "Academic,Bilateral,Government,Intergovernmental,NGO,UN agency":
                     tabs = [(T("Basic Details"), None, {"native": 1}),
-                            (T("Branches"), "branch"),
                             (T("Offices"), "office"),
                             (T("Warehouses"), "warehouse"),
                             (T("Contacts"), "human_resource"),
                             (T("Projects"), "project"),
-                            ]
+                           ]
+            else:
+                tabs = [(T("Basic Details"), None),
+                        (T("Offices"), "office"),
+                        (T("Warehouses"), "warehouse"),
+                        (T("Facilities"), "facility"),
+                        (T("Staff & Volunteers"), "human_resource"),
+                        (T("Assets"), "asset"),
+                        (T("Projects"), "project"),
+                        (T("User Roles"), "roles"),
+                        #(T("Tasks"), "task"),
+                       ]
+                       
+            # Use branches?
+            if settings.org.branches and not skip_branches:
+                tabs.insert(1, (T("Branches"), "branch"))
+                
         rheader_tabs = s3_rheader_tabs(r, tabs)
 
         # @ToDo: Update for Component
@@ -4491,6 +4710,7 @@ def org_facility_controller():
     db = current.db
     s3db = current.s3db
     s3 = current.response.s3
+    request = current.request
 
     # Pre-processor
     def prep(r):
@@ -4561,6 +4781,10 @@ def org_facility_controller():
             elif r.id:
                 field = r.table.obsolete
                 field.readable = field.writable = True
+            elif r.method in ("create", "create.popup"):
+                name = request.get_vars.get("name", None)
+                if name:
+                    r.table.name.default = name
 
         elif r.representation == "geojson":
             # Load these models now as they'll be needed when we encode
@@ -4573,6 +4797,7 @@ def org_facility_controller():
         if r.representation == "plain" and \
              r.method !="search":
             # Custom Map Popup
+            T = current.T
             output = TABLE()
             append = output.append
             # Edit button
@@ -4680,7 +4905,7 @@ def org_facility_controller():
         return output
     s3.postp = postp
 
-    if "map" in current.request.args:
+    if "map" in request.args:
         # S3Map has migrated
         hide_filter = False
     else:

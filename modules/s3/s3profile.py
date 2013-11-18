@@ -318,15 +318,14 @@ class S3Profile(S3CRUD):
         ajaxurl = r.url(vars={"update": widget["index"]},
                         representation="dl")
         data = datalist.html(ajaxurl=ajaxurl,
-                             pagesize=pagesize
+                             pagesize=pagesize,
+                             empty = P(I(_class="icon-folder-open-alt"),
+                                       BR(),
+                                       S3CRUD.crud_string(tablename,
+                                                          "msg_no_match"),
+                                       _class="empty_card-holder"
+                                      ),
                              )
-        if numrows == 0:
-            msg = P(I(_class="icon-folder-open-alt"),
-                    BR(),
-                    S3CRUD.crud_string(tablename,
-                                       "msg_no_match"),
-                    _class="empty_card-holder")
-            data.insert(1, msg)
 
         if representation == "dl":
             # This is an Ajax-request, so we don't need the wrapper
@@ -342,6 +341,7 @@ class S3Profile(S3CRUD):
             icon = TAG[""](I(_class=icon), " ")
 
         # Permission to create new items?
+        create = ""
         insert = widget.get("insert", True)
         if insert and current.auth.s3_has_permission("create", table):
             #if r.tablename = "org_organisation":
@@ -372,12 +372,29 @@ class S3Profile(S3CRUD):
                 create = insert(r, title_create, add_url)
             else:
                 create = A(I(_class="icon icon-plus-sign small-add"),
-                        _href=add_url,
-                        _class="s3_modal",
-                        _title=title_create,
-                        )
-        else:
-            create = ""
+                           _href=add_url,
+                           _class="s3_modal",
+                           _title=title_create,
+                          )
+            multiple = widget.get("multiple", True)
+            if not multiple and hasattr(create, "update"):
+                # If this is a multiple=False widget and we already
+                # have a record, we hide the create-button
+                if numrows:
+                    create.update(_style="display:none;")
+                else:
+                    create.update(_style="display:block;")
+                # Script to hide/unhide the create-button on Ajax
+                # list updates
+                createid = create["_id"]
+                if not createid:
+                    createid = "%s-add-button" % listid
+                    create.update(_id=createid)
+                script = '''
+$('#%(listid)s').on('listUpdate', function() {
+ $('#%(createid)s').css({display: $(this).datalist('getTotalItems') ? 'none' : 'block'});
+});''' % dict(listid=listid, createid=createid)
+                current.response.s3.jquery_ready.append(script)
 
         if pagesize and numrows > pagesize:
             # Button to display the rest of the records in a Modal

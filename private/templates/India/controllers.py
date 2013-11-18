@@ -758,7 +758,7 @@ class subscriptions(S3CustomController):
         form.append(fieldset)
 
         # Script (to extract filters on submit and toggle options visibility)
-        script = """
+        script = '''
 $('#notification-options').click(function() {
   $(this).siblings().toggle();
   $(this).children().toggle();
@@ -769,7 +769,7 @@ $('#subscription-form').submit(function() {
   $('input[name="subscription-filters"]')
   .val(JSON.stringify(S3.search.getCurrentFilters($(this))));
 });
-"""
+'''
         response = current.response
         response.s3.jquery_ready.append(script)
 
@@ -997,26 +997,4 @@ $('#subscription-form').submit(function() {
         subscription["filter_id"] = filter_id
         return subscription
         
-# =============================================================================
-class contact():
-    """
-        Custom page
-    """
-
-    def __call__(self):
-
-        view = path.join(current.request.folder, "private", "templates",
-                         THEME, "views", "contact.html")
-        try:
-            # Pass view as file not str to work in compiled mode
-            current.response.view = open(view, "rb")
-        except IOError:
-            from gluon.http import HTTP
-            raise HTTP(404, "Unable to open Custom View: %s" % view)
-
-        title = current.T("Contact Us")
-
-        return dict(title = title,
-                    )
-
 # END =========================================================================

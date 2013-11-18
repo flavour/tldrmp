@@ -291,6 +291,7 @@ class S3LocationModel(S3Model):
                                      sortby = "name",
                                      label = messages.COUNTRY,
                                      requires = country_requires,
+                                     widget = S3SelectChosenWidget(),
                                      represent = self.gis_country_represent,
                                      ondelete = "RESTRICT")
 
@@ -4626,8 +4627,9 @@ class gis_LocationRepresent(S3Represent):
     def __init__(self,
                  show_link = False,
                  multiple = False,
+                 address_only = False,
                  sep = None,
-                 address_only = False
+                 show_name = False, # Show name in location for level==None when sep is used
                  ):
 
         # Translation uses gis_location_name & not T()
@@ -4635,6 +4637,7 @@ class gis_LocationRepresent(S3Represent):
 
         self.address_only = address_only
         self.sep = sep
+        self.show_name = show_name
 
         if sep:
             # Separator to place between all elements in the hierarchy
@@ -4795,7 +4798,10 @@ class gis_LocationRepresent(S3Represent):
                 return name
             # Remove the last ID as this is 'name'
             ids.pop()
-            locations = [name]
+            if self.show_name or level is not None:
+                locations = [name]
+            else:
+                locations = []
             lappend = locations.append
             L5 = row.L5
             if L5 and level != "L5":

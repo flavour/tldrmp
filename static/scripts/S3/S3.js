@@ -77,6 +77,13 @@ S3.Utf8 = {
 };
 
 S3.addTooltips = function() {
+    // Popovers (Bootstrap themes only)
+    if (typeof($.fn.popover) != 'undefined') {
+        $('.s3-popover').popover({
+            trigger: 'hover',
+            placement: 'left'
+        });
+    }
     // Help Tooltips
     $.cluetip.defaults.cluezIndex = 9999; // Need to be able to show on top of Ext Windows
     $('.tooltip').cluetip({activation: 'hover', sticky: false, splitTitle: '|'});
@@ -336,6 +343,7 @@ var S3EnableNavigateAwayConfirm = function() {
         ).done(function(data, status) {
             S3.hideAlerts();
             this.tryCount = 0;
+            // @ToDo: support drop-in replacement functions by calling .done()
             if (s.success) {
                 // Calling function's success callback
                 s.success(data, status);
@@ -359,6 +367,7 @@ var S3EnableNavigateAwayConfirm = function() {
                 return;
             }
             if (jqXHR.status == 500) {
+                // @ToDo: Can we find & show the ticket URL?
                 S3.showAlert(i18n.ajax_500, 'error');
             } else {
                 S3.showAlert(i18n.ajax_dwn, 'error');

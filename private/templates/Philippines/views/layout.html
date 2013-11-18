@@ -77,34 +77,18 @@
    <a class='brand' href='/{{=appname}}/default/index'><img src="/{{=appname}}/static/img/S3menu_logo.png" style="width:29px;margin:0 0 -20px 0" alt=""/></a>
    <div class='nav-collapse collapse'>
     <ul class='nav'>
-     <li><a href='/{{=appname}}/default/index/newsfeed'> <i class='icon-updates'></i> {{=T("News Feed")}}</a></li>
-     <li><a href='/{{=appname}}/gis/index'><i class='icon-map'></i> {{=T("Map")}}</a></li>
-     <li class='dropdown'> <a href='#' class='dropdown-toggle disabled top-level' id='resources' data-toggle='dropdown'><i class='icon-project'></i> {{=T("Resources")}}<b class='caret'></b></a>
-      <ul class='dropdown-menu' role='menu' aria-labelledby='resources'>
-       <li role='menuitem'><a href='/{{=appname}}/hms/hospital/summary' tabindex='-1' class='menu-item'><i class='icon-h-sign'></i> {{=T("Health Facilities")}}</a></li>
-       <li role='menuitem'><a href='/{{=appname}}/org/resource' tabindex='-1' class='menu-item'><i class='icon-project'></i> {{=T("Resources")}}</a></li>
-       <li role='menuitem'><a href='/{{=appname}}/cr/shelter/summary' tabindex='-1' class='menu-item'><i class='icon-umbrella'></i> {{=T("Shelters")}}</a></li>
-      </ul>
-     </li>
-     <li class='dropdown'> <a href='#' class='dropdown-toggle disabled top-level' id='projects' data-toggle='dropdown'><i class='icon-project'></i> {{=T("Projects")}}<b class='caret'></b></a>
-      <ul class='dropdown-menu' role='menu' aria-labelledby='projects'>
-       <li role='menuitem'><a href='/{{=appname}}/project/beneficiary/summary' tabindex='-1' class='menu-item'><i class='icon-tasks'></i> {{=T("Beneficiaries")}}</a></li>
-       <li role='menuitem'><a href='/{{=appname}}/supply/distribution/summary' tabindex='-1' class='menu-item'><i class='icon-tasks'></i> {{=T("Distributions")}}</a></li>
-       <li role='menuitem'><a href='/{{=appname}}/project/project' tabindex='-1' class='menu-item'><i class='icon-project'></i> {{=T("Projects")}}</a></li>
-      </ul>
-     </li>
-     <li class='dropdown'> <a href='#' class='dropdown-toggle disabled top-level' id='profiles' data-toggle='dropdown'><i class='icon-folder-open-alt'></i> {{=T("Profiles")}}<b class='caret'></b></a>
-      <ul class='dropdown-menu' role='menu' aria-labelledby='profiles'>
-       <!--<li role='menuitem'><a href='/{{=appname}}/event/event/datalist' tabindex='-1' class='menu-item'><i class='icon-incident'></i> {{=T("Disasters")}}</a></li>-->
-       <li role='menuitem'><a href='/{{=appname}}/gis/location/datalist' tabindex='-1' class='menu-item'><i class='icon-map'></i> {{=T("Regions")}}</a></li>
-       <li role='menuitem'><a href='/{{=appname}}/org/organisation/datalist' tabindex='-1' class='menu-item'><i class='icon-sitemap'></i> {{=T("Organizations")}}</a></li>
-      </ul>
-     </li>
+     <li><a href='/{{=appname}}/req/req/create'><i class='icon-flag'></i> {{=T("Make a Request")}}</a></li>
+     <li><a href='/{{=appname}}/req/req/datalist'><i class='icon-truck'></i> {{=T("Donate in Kind")}}</a></li>
+     <li><a href='/{{=appname}}/org/organisation/datalist?needs.money=True'><i class='icon-dollar'></i> {{=T("Donate Money")}}</a></li>
      <li class='dropdown'> <a href='#' class='dropdown-toggle disabled top-level' id='more' data-toggle='dropdown'><i class='icon-plus-sign'></i> {{=T("More")}}<b class='caret'></b></a>
       <ul class='dropdown-menu' role='menu' aria-labelledby='more'>
-       <li role='menuitem'><a href='/{{=appname}}/pr/person' tabindex='-1' class='menu-item'><i class='icon-contact'></i> {{=T("Contact Directory")}}</a></li>
-       <li role='menuitem'><a href='/{{=appname}}/stats/demographic' tabindex='-1' class='menu-item'><i class='icon-tasks'></i> {{=T("Demographics")}}</a></li>
-       <li role='menuitem'><a href='/{{=appname}}/doc/document' tabindex='-1' class='menu-item'><i class='icon-file-alt'></i> {{=T("Documents")}}</a></li>
+       <li role='menuitem'><a href='/{{=appname}}/gis/index' tabindex='-1' class='menu-item'><i class='icon-map-marker'></i> {{=T("Map")}}</a></li>
+       <li role='menuitem'><a href='/{{=appname}}/gis/location/datalist?~.level=L1' tabindex='-1' class='menu-item'><i class='icon-map'></i> {{=T("Regions")}}</a></li>
+       <li role='menuitem'><a href='/{{=appname}}/org/organisation/datalist' tabindex='-1' class='menu-item'><i class='icon-sitemap'></i> {{=T("Organizations")}}</a></li>
+       <li role='menuitem'><a href='/{{=appname}}/org/facility/datalist' tabindex='-1' class='menu-item'><i class='icon-home'></i> {{=T("Sites")}}</a></li>
+       <li role='menuitem'><a href='/{{=appname}}/pr/person' tabindex='-1' class='menu-item'><i class='icon-contact'></i> {{=T("Contacts")}}</a></li>
+       <!--<li role='menuitem'><a href='/{{=appname}}/stats/demographic' tabindex='-1' class='menu-item'><i class='icon-tasks'></i> {{=T("Demographics")}}</a></li>-->
+       <!--<li role='menuitem'><a href='/{{=appname}}/doc/document' tabindex='-1' class='menu-item'><i class='icon-file-alt'></i> {{=T("Documents")}}</a></li>-->
       </ul>
      </li>
     </ul>
@@ -115,17 +99,14 @@
        {{if auth.s3_has_role("ADMIN"):}}
        <li><a href='/{{=appname}}/admin/user'><i class='icon-cogs'></i> {{=T("Admin")}}</a></li>
        {{pass}}
-       <li><a href='/{{=appname}}/pr/person'><i class='icon-list'></i> {{=T("Contact People")}}</a></li>
        <li class='divider'></li>
        <li><a href='/{{=appname}}/default/person'><i class='icon-user'></i> {{=auth.user.email}}</a></li>
-       <!--<li><a href='/{{=appname}}/default/index/filters'><i class='icon-filter'></i> {{=T("Saved Filters")}}</a></li>-->
-       <!--<li><a href='/{{=appname}}/gis/config'><i class='icon-globe'></i> {{=T("Saved Maps")}}</a></li>-->
+       <li><a href='/{{=appname}}/default/index/subscriptions'><i class='icon-envelope'></i> {{=T("Notifications")}}</a></li>
        <li><a href='/{{=appname}}/default/user/change_password'><i class='icon-lock'></i> {{=T("Change Password")}}</a></li>
        <li><a href='/{{=appname}}/default/user/logout'><i class='icon-off'></i> {{=T("Logout")}}</a></li>
-       <!--<li><a href='/{{=appname}}/default/user/register'><i class='icon-check'></i> {{=T("Register")}}</a></li>-->
       </ul>
      </li>
-     {{else:}}{{if request.controller == "default" and request.function == "user" and "login" in request.args:}} {{else:}}
+     {{else:}}{{if request.controller == "default" and request.function == "user" or "login" in request.args:}} {{else:}}
      <li class='dropdown'><a href='#' class='dropdown-toggle' data-toggle='dropdown'><i class='icon-signin'></i><b class='caret'></b></a>
       <ul class='dropdown-menu'>
       {{=auth.login()}}
