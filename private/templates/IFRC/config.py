@@ -88,7 +88,6 @@ def ifrc_realm_entity(table, row):
                             pr_note = PID,
                             hrm_human_resource = SID,
                             inv_recv = SID,
-                            inv_recv_item = "req_id",
                             inv_send = SID,
                             inv_track_item = "track_org_id",
                             inv_adj_item = "adj_id",
@@ -206,6 +205,8 @@ settings.L10n.thousands_separator = ","
 settings.L10n.date_format = T("%d-%b-%y")
 # Make last name in person/user records mandatory
 settings.L10n.mandatory_lastname = True
+# Uncomment this to Translate Layer Names
+settings.L10n.translate_gis_layer = True
 # Translate Location Names
 settings.L10n.translate_gis_location = True
 

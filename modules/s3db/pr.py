@@ -2588,6 +2588,12 @@ class S3PersonDetailsModel(S3Model):
                                                                         T("Nationality of the person."))),
                                         represent = lambda code: \
                                             gis.get_country(code, key_type="code") or UNKNOWN_OPT),
+                                  Field("place_of_birth",
+                                        label = T("Place of Birth"),
+                                        # Enable as-required in template
+                                        readable = False,
+                                        writable = False,
+                                        ),
                                   pr_marital_status(),
                                   Field("religion", length=128,
                                         label = T("Religion"),
@@ -3683,11 +3689,12 @@ class S3PersonDescription(S3Model):
                                    label = T("Complexion"),
                                    represent = lambda opt: \
                                                 pr_complexion_opts.get(opt, UNKNOWN_OPT)),
-                             Field("ethnicity", length=64,
+                             Field("ethnicity", length=64, # Mayon Compatibility
                                    #requires=IS_NULL_OR(IS_IN_SET(pr_ethnicity_opts)),
                                    #readable=False,
                                    #writable=False,
-                                  ),   # Mayon Compatibility
+                                   label = T("Ethnicity"),
+                                   ),  
 
                              # Height and weight
                              Field("height", "integer",
@@ -3746,7 +3753,9 @@ class S3PersonDescription(S3Model):
                                    label = T("Baldness"),
                                    represent = lambda opt: \
                                                 pr_hair_baldness_opts.get(opt, UNKNOWN_OPT)),
-                             Field("hair_comment"),
+                             Field("hair_comment",
+                                   label = T("Hair Comments"),
+                                   ),
 
                              # Facial hair
                              Field("facial_hair_type", "integer",
@@ -3764,17 +3773,27 @@ class S3PersonDescription(S3Model):
                                    label = T("Facial hair, length"),
                                    represent = lambda opt: \
                                                 pr_facial_hair_length_opts.get(opt, UNKNOWN_OPT)),
-                             Field("facial_hair_comment"),
+                             Field("facial_hair_comment",
+                                   label = T("Facial hair, comment"),
+                                   ),
 
                              # Body hair and skin marks
-                             Field("body_hair"),
-                             Field("skin_marks", "text"),
+                             Field("body_hair",
+                                   label = T("Body Hair"),
+                                   ),
+                             Field("skin_marks", "text",
+                                   label = T("Skin Marks"),
+                                   ),
 
                              # Medical Details: scars, amputations, implants
-                             Field("medical_conditions", "text"),
+                             Field("medical_conditions", "text",
+                                   label = T("Medical Conditions"),
+                                   ),
 
                              # Other details
-                             Field("other_details", "text"),
+                             Field("other_details", "text",
+                                   label = T("Other Details"),
+                                   ),
 
                              s3_comments(),
                              *s3_meta_fields())
@@ -3782,9 +3801,6 @@ class S3PersonDescription(S3Model):
         # Field configuration
         table.pe_id.readable = False
         table.pe_id.writable = False
-
-        # CRUD Strings
-        # ?
 
         # ---------------------------------------------------------------------
         # Return model-global names to response.s3

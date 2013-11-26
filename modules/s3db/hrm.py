@@ -1411,7 +1411,9 @@ class S3HRSiteModel(S3Model):
 
         if item.tablename == "hrm_human_resource_site":
             data = item.data
-            hr = "human_resource_id" in data and data.human_resource_id
+            human_resource_id = data.get("human_resource_id", None)
+            if not human_resource_id:
+                return
 
             table = item.table
             query = (table.human_resource_id == human_resource_id)
@@ -5475,7 +5477,7 @@ def hrm_person_controller(**attr):
 
             resource = r.resource
             if mode is not None:
-                resource.build_query(id=s3_logged_in_person())
+                resource.build_query(id=auth.s3_logged_in_person())
             elif r.method not in ("deduplicate", "search_ac"):
                 if not r.id and not hr_id:
                     # pre-action redirect => must retain prior errors

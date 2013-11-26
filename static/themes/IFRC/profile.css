@@ -127,6 +127,9 @@ div.media a.pull-left img.media-object {
     margin-left: 40px;
     margin-bottom: 2px;
 }
+.profile-data {
+    margin-top: 6px;
+}
 .profile-data-label{
     font: 11px "Helvetica Neue", Arial, sans-serif;
     color: #999;
@@ -203,8 +206,24 @@ div.media a.pull-left img.media-object {
     background-position: 0 0;
 }
 
+.icon.icon-sent,
+.icon.icon-unsent {
+    margin-right: 4px;
+    background: url(img/deploy.png) no-repeat;
+}
+.icon.icon-unsent {
+    background-position: -28px 0;
+}
+.icon.icon-sent {
+    background-position: 0 0;
+}
+
 .profile-add-btn {
     float: right;
     margin-top: 6px;
     margin-right: 6px;
+}
+
+.alert-status {
+    padding-left: 20px;
 }

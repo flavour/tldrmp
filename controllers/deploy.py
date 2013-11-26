@@ -49,26 +49,27 @@ def mission():
                                delete_next=next_url)
             s3.cancel = next_url
             if r.component_name == "human_resource_assignment":
-                get_vars = r.get_vars
-                if "member_id" in get_vars:
+                member_id = r.get_vars.get("member_id", None)
+                if member_id and str(member_id).isdigit():
                     # Deploy-this-member action
-                    member_id = get_vars["member_id"]
-                    if str(member_id).isdigit():
-                        # Check if this member exists, otherwise ignore
-                        htable = s3db.hrm_human_resource
-                        query = (htable.id == member_id) & \
-                                (htable.deleted != True)
-                        row = db(query).select(htable.id, limitby=(0, 1)).first()
-                        if row:
-                            field = s3db.deploy_human_resource_assignment \
-                                        .human_resource_id
-                            field.default = row.id
-                            field.writable = False
-                            field.comment = None
+                    htable = s3db.hrm_human_resource
+                    query = (htable.id == member_id) & \
+                            (htable.deleted != True)
+                    row = db(query).select(htable.id, limitby=(0, 1)).first()
+                    if row:
+                        field = s3db.deploy_human_resource_assignment \
+                                    .human_resource_id
+                        field.default = row.id
+                        field.writable = False
+                        field.comment = None
+                elif r.method == "create":
+                    atable = s3db.deploy_human_resource_assignment
+                    atable.end_date.writable = atable.end_date.readable = False
+                    atable.rating.writable = atable.rating.readable = False
             if not r.component and r.method == "profile":
                 represent = lambda d: \
                             s3base.S3DateTime.datetime_represent(d, utc=True)
-                s3db.deploy_alert.created_on.represent = represent
+                s3db.deploy_alert.modified_on.represent = represent
                 s3db.deploy_response.created_on.represent = represent
                 s3base.s3_trunk8(lines=1)
         else:
@@ -112,12 +113,6 @@ def mission():
 def response_message():
     """ RESTful CRUD Controller """
 
-    def prep(r):
-        if r.record:
-            s3.cancel = r.url(method="read")
-        return True
-    s3.prep = prep
-
     return s3_rest_controller("deploy", "response",
                               custom_crud_buttons = {"list_btn": None})
     
@@ -131,6 +126,10 @@ def human_resource():
     settings.hrm.staff_experience = True
     settings.hrm.use_skills = True
     settings.search.filter_manager = True
+
+    # Add deploy_alert_recipient as component so that we filter by it
+    s3db.add_component("deploy_alert_recipient",
+                       hrm_human_resource = "human_resource_id")
 
     q = s3base.S3FieldSelector("human_resource_application.active") == True
     output = s3db.hrm_human_resource_controller(extra_filter=q)
@@ -195,6 +194,10 @@ def human_resource_assignment():
     """ RESTful CRUD Controller """
 
     def prep(r):
+        if r.record:
+            table = r.resource.table
+            table.mission_id.writable = False
+            table.human_resource_id.writable = False
         if r.representation == "popup":
             r.resource.configure(insertable=False)
         return True
@@ -267,6 +270,8 @@ def alert():
                                    )
             else:
                 s3db.configure(r.tablename,
+                               create_next=URL(f="alert",
+                                               args=["[id]", "select"]),
                                deletable = False,
                                # @ToDo: restrict in postp to change this action button
                                #editable = False,
@@ -274,9 +279,9 @@ def alert():
 
             # Hide label for single field in InlineComponent
             #s3db.deploy_alert_recipient.human_resource_id.label = ""
-            created_on = r.table.created_on
+            created_on = r.table.modified_on
             created_on.readable = True
-            created_on.label = T("Date Created")
+            created_on.label = T("Date")
             created_on.represent = lambda d: \
                                    s3base.S3DateTime.date_represent(d, utc=True)
         return True
@@ -291,11 +296,11 @@ def alert():
                                            args=["[id]", "profile"]))]
             if r.component_name == "recipient":
                 # Open should open the member profile, not the link
-                # @todo: this doesn't work!
                 s3.actions = [dict(label=str(READ),
                                    _class="action-btn read",
                                    url=URL(f="human_resource",
-                                           args=["[id]", "profile"]))]
+                                           args=["profile"],
+                                           vars={"alert_recipient.id": "[id]"}))]
                 if not r.record.message_id:
                     # Delete should remove the Link, not the Member
                     s3.actions.append(dict(label=str(DELETE),

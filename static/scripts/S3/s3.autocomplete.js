@@ -81,18 +81,18 @@
                         // No Match
                         real_input.val('').change();
                         // New Entry?
-                        if (create.length) {
+                        //if (create.length) {
                             // Open popup to create new entry
                             // @ToDo: prepopulate name field
-                            create.click();
-                        } else {
+                        //    create.click();
+                        //} else {
                             // No link to create new (e.g. no permission to do so)
                             data.push({
                                 id: 0,
                                 value: '',
                                 label: i18n.no_matching_records
                             });
-                        }
+                        //}
                     } else {
                         data.push({
                             id: 0,
@@ -119,6 +119,9 @@
                 if (item.id) {
                     dummy_input.val(item[fieldname]);
                     real_input.val(item.id).change();
+                    // Update existing, so blur does not remove
+                    // the selection again:
+                    existing = {value: item.id, name: item[fieldname]};
                 } else {
                     // No Match & no ability to create new
                     dummy_input.val('');
@@ -147,11 +150,11 @@
                 // New Entry - without letting AC complete (e.g. tab out)
                 real_input.val('').change();
                 // @ToDo: Something better!
-                if (create.length) {
+                //if (create.length) {
                     // Open popup to create new entry
                     // @ToDo: prepopulate name field
-                    create.click();
-                }
+                //    create.click();
+                //}
             }
         });
     };
@@ -215,18 +218,18 @@
                         // No Match
                         real_input.val('').change();
                         // New Entry?
-                        if (create.length) {
+                        //if (create.length) {
                             // Open popup to create new entry
                             // @ToDo: prepopulate name field
-                            create.click();
-                        } else {
+                        //    create.click();
+                        //} else {
                             // No link to create new (e.g. no permission to do so)
                             data.push({
                                 id: 0,
                                 value: '',
                                 label: i18n.no_matching_records
                             });
-                        }
+                        //}
                     } else {
                         data.push({
                             id: 0,
@@ -254,6 +257,9 @@
                 if (id) {
                     dummy_input.val(item.name);
                     real_input.val(id).change();
+                    // Update existing, so blur does not remove
+                    // the selection again:
+                    existing = {value: item.id, name: item.name};
                 } else {
                     // No Match & no ability to create new
                     dummy_input.val('');
@@ -289,11 +295,11 @@
                 // New Entry - without letting AC complete (e.g. tab out)
                 real_input.val('').change();
                 // @ToDo: Something better!
-                if (create.length) {
+                //if (create.length) {
                     // Open popup to create new entry
                     // @ToDo: prepopulate name field
-                    create.click();
-                }
+                //    create.click();
+                //}
             }
         });
     };
@@ -423,18 +429,18 @@
                         // No Match
                         real_input.val('').change();
                         // New Entry?
-                        if (create.length) {
+                        //if (create.length) {
                             // Open popup to create new entry
                             // @ToDo: prepopulate name field
-                            create.click();
-                        } else {
+                        //    create.click();
+                        //} else {
                             // No link to create new (e.g. no permission to do so)
                             data.push({
                                 id: 0,
                                 value: '',
                                 label: i18n.no_matching_records
                             });
-                        }
+                        //}
                     } else {
                         data.push({
                             id: 0,
@@ -461,6 +467,9 @@
                 if (item.id) {
                     dummy_input.val(ui.item.name);
                     real_input.val(item.id).change();
+                    // Update existing, so blur does not remove
+                    // the selection again:
+                    existing = {value: item.id, name: ui.item.name};
                 } else {
                     // No Match & no ability to create new
                     dummy_input.val('');
@@ -484,11 +493,11 @@
                 // New Entry - without letting AC complete (e.g. tab out)
                 real_input.val('').change();
                 // @ToDo: Something better!
-                if (create.length) {
+                //if (create.length) {
                     // Open popup to create new entry
                     // @ToDo: prepopulate name field
-                    create.click();
-                }
+                //    create.click();
+                //}
             }
         });
     };
@@ -574,18 +583,18 @@
                         // No Match
                         real_input.val('').change();
                         // New Entry?
-                        if (create.length) {
+                        //if (create.length) {
                             // Open popup to create new entry
                             // @ToDo: prepopulate name field
-                            create.click();
-                        } else {
+                        //    create.click();
+                        //} else {
                             // No link to create new (e.g. no permission to do so)
                             data.push({
                                 id: 0,
                                 value: '',
                                 label: i18n.no_matching_records
                             });
-                        }
+                        //}
                     } else {
                         data.push({
                             id: 0,
@@ -613,6 +622,9 @@
                     var name = represent(item);
                     dummy_input.val(name);
                     real_input.val(item.id).change();
+                    // Update existing, so blur does not remove
+                    // the selection again:
+                    existing = {value: item.id, name: name};
                 } else {
                     // No Match & no ability to create new
                     dummy_input.val('');
@@ -636,11 +648,11 @@
                 // New Entry - without letting AC complete (e.g. tab out)
                 real_input.val('').change();
                 // @ToDo: Something better!
-                if (create.length) {
+                //if (create.length) {
                     // Open popup to create new entry
                     // @ToDo: prepopulate name field
-                    create.click();
-                }
+                //    create.click();
+                //}
             }
         });
     };
@@ -710,18 +722,18 @@
                         // No Match
                         real_input.val('').change();
                         // New Entry?
-                        if (create.length) {
+                        //if (create.length) {
                             // Open popup to create new entry
                             // @ToDo: prepopulate name field
-                            create.click();
-                        } else {
+                        //    create.click();
+                        //} else {
                             // No link to create new (e.g. no permission to do so)
                             data.push({
                                 id: 0,
                                 value: '',
                                 label: i18n.no_matching_records
                             });
-                        }
+                        //}
                     } else {
                         data.push({
                             id: 0,
@@ -748,6 +760,9 @@
                 if (item.id) {
                     dummy_input.val(item.name);
                     real_input.val(item.id).change();
+                    // Update existing, so blur does not remove
+                    // the selection again:
+                    existing = {value: item.id, name: item.name};
                 } else {
                     // No Match & no ability to create new
                     dummy_input.val('');
@@ -776,11 +791,11 @@
                 // New Entry - without letting AC complete (e.g. tab out)
                 real_input.val('').change();
                 // @ToDo: Something better!
-                if (create.length) {
+                //if (create.length) {
                     // Open popup to create new entry
                     // @ToDo: prepopulate name field
-                    create.click();
-                }
+                //    create.click();
+                //}
             }
         });
     };
@@ -887,18 +902,18 @@
                         // No Match
                         real_input.val('').change();
                         // New Entry?
-                        if (create.length) {
+                        //if (create.length) {
                             // Open popup to create new entry
                             // @ToDo: prepopulate name field
-                            create.click();
-                        } else {
+                        //    create.click();
+                        //} else {
                             // No link to create new (e.g. no permission to do so)
                             data.push({
                                 id: 0,
                                 value: '',
                                 label: i18n.no_matching_records
                             });
-                        }
+                        //}
                     } else {
                         data.push({
                             id: 0,
@@ -926,6 +941,9 @@
                     var name = represent_person(item);
                     dummy_input.val(name);
                     real_input.val(item.id).change();
+                    // Update existing, so blur does not remove
+                    // the selection again:
+                    existing = {value: item.id, name: name};
                 } else {
                     // No Match & no ability to create new
                     dummy_input.val('');
@@ -949,11 +967,11 @@
                 // New Entry - without letting AC complete (e.g. tab out)
                 real_input.val('').change();
                 // @ToDo: Something better!
-                if (create.length) {
+                //if (create.length) {
                     // Open popup to create new entry
                     // @ToDo: prepopulate name field
-                    create.click();
-                }
+                //    create.click();
+                //}
             }
         });
     };
@@ -1057,23 +1075,23 @@
                         // No Match
                         real_input.val('').change();
                         // New Entry?
-                        if (create.length) {
+                        //if (create.length) {
                             // Open popup to create new entry
                             // Prepopulate name field
-                            var old_url = create.attr('href');
-                            var new_url = old_url + '&name=' + dummy_input.val();
-                            create.attr('href', new_url);
-                            create.click();
+                        //    var old_url = create.attr('href');
+                        //    var new_url = old_url + '&name=' + dummy_input.val();
+                        //    create.attr('href', new_url);
+                        //    create.click();
                             // Restore URL
-                            create.attr('href', old_url);
-                        } else {
+                        //    create.attr('href', old_url);
+                        //} else {
                             // No link to create new (e.g. no permission to do so)
                             data.push({
                                 id: 0,
                                 value: '',
                                 label: i18n.no_matching_records
                             });
-                        }
+                        //}
                     } else {
                         data.push({
                             id: 0,
@@ -1100,6 +1118,9 @@
                 if (item.id) {
                     dummy_input.val(item.name);
                     real_input.val(item.id).change();
+                    // Update existing, so blur does not remove
+                    // the selection again:
+                    existing = {value: item.id, name: item.name};
                 } else {
                     // No Match & no ability to create new
                     dummy_input.val('');
@@ -1123,11 +1144,11 @@
                 // New Entry - without letting AC complete (e.g. tab out)
                 real_input.val('').change();
                 // @ToDo: Something better!
-                if (create.length) {
+                //if (create.length) {
                     // Open popup to create new entry
                     // @ToDo: Prepopulate name field
-                    create.click();
-                }
+                //    create.click();
+                //}
             }
         });
     };
@@ -1228,23 +1249,23 @@
                         // No Match
                         real_input.val('').change();
                         // New Entry?
-                        if (create.length) {
+                        //if (create.length) {
                             // Open popup to create new entry
                             // Prepopulate name field
-                            var old_url = create.attr('href');
-                            var new_url = old_url + '&name=' + dummy_input.val();
-                            create.attr('href', new_url);
-                            create.click();
+                        //    var old_url = create.attr('href');
+                        //    var new_url = old_url + '&name=' + dummy_input.val();
+                        //    create.attr('href', new_url);
+                        //    create.click();
                             // Restore URL
-                            create.attr('href', old_url);
-                        } else {
+                        //    create.attr('href', old_url);
+                        //} else {
                             // No link to create new (e.g. no permission to do so)
                             data.push({
                                 id: 0,
                                 value: '',
                                 label: i18n.no_matching_records
                             });
-                        }
+                        //}
                     } else {
                         data.push({
                             id: 0,
@@ -1271,6 +1292,9 @@
                 if (item.id) {
                     dummy_input.val(item.name);
                     real_input.val(item.id).change();
+                    // Update existing, so blur does not remove
+                    // the selection again:
+                    existing = {value: item.id, name: item.name};
                 } else {
                     // No Match & no ability to create new
                     dummy_input.val('');
@@ -1294,11 +1318,11 @@
                 // New Entry - without letting AC complete (e.g. tab out)
                 real_input.val('').change();
                 // @ToDo: Something better!
-                if (create.length) {
+                //if (create.length) {
                     // Open popup to create new entry
                     // @ToDo: Prepopulate name field
-                    create.click();
-                }
+                //    create.click();
+                //}
             }
         });
     };
@@ -1352,18 +1376,18 @@
                         // No Match
                         real_input.val('').change();
                         // New Entry?
-                        if (create.length) {
+                        //if (create.length) {
                             // Open popup to create new entry
                             // @ToDo: prepopulate name field
-                            create.click();
-                        } else {
+                        //    create.click();
+                        //} else {
                             // No link to create new (e.g. no permission to do so)
                             data.push({
                                 id: 0,
                                 value: '',
                                 label: i18n.no_matching_records
                             });
-                        }
+                        //}
                     } else {
                         data.push({
                             id: 0,
@@ -1390,6 +1414,9 @@
                 if (item.id) {
                     dummy_input.val(item.name);
                     real_input.val(item.id).change();
+                    // Update existing, so blur does not remove
+                    // the selection again:
+                    existing = {value: item.id, name: item.name};
                 } else {
                     // No Match & no ability to create new
                     dummy_input.val('');
@@ -1413,11 +1440,11 @@
                 // New Entry - without letting AC complete (e.g. tab out)
                 real_input.val('').change();
                 // @ToDo: Something better!
-                if (create.length) {
+                //if (create.length) {
                     // Open popup to create new entry
                     // @ToDo: prepopulate name field
-                    create.click();
-                }
+                //    create.click();
+                //}
             }
         });
     };

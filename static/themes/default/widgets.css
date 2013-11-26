@@ -1,5 +1,12 @@
 @charset "UTF-8";
 
+body.ltr {
+    direction: ltr;
+}
+body.rtl div {
+    direction: rtl;
+}
+
 /* Form Layout Styles */
 form label {
     cursor: pointer;
@@ -1309,6 +1316,11 @@ table.report .pt-cell-zoom.opened {
     -moz-box-sizing: content-box;
     -webkit-box-sizing: content-box;
     box-sizing: content-box;
+}
+
+td .icon {
+    /* Override profile.css */
+    margin-top: 0;
 }
 
 .resizable-textarea .grippie {

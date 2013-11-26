@@ -119,6 +119,34 @@
         });
     }
 
+    /**
+     * Check that Widget is ready
+     * - used to fire functions from outside
+     */
+    S3.addPersonWidgetReady = function(fieldname) {
+        var dfd = new jQuery.Deferred();
+
+        var selector = '#' + fieldname;
+        var real_input = $(selector);
+
+        // Test every half-second
+        setTimeout(function working() {
+            if (real_input.data('lookup_contact') != undefined) {
+                dfd.resolve('loaded');
+            } else if (dfd.state() === 'pending') {
+                // Notify progress
+                dfd.notify('waiting for Widget to setup...');
+                // Loop
+                setTimeout(working, 500);
+            } else {
+                // Failed!?
+            }
+        }, 1);
+
+        // Return the Promise so caller can't change the Deferred
+        return dfd.promise();
+    };
+
     var enable_person_fields = function(fieldname) {
         var selector = '#' + fieldname;
         $(selector + '_organisation_id').prop('disabled', false);
@@ -152,15 +180,8 @@
         // Enable the Autocomplete
         enable_autocomplete(fieldname);
         // Enable all the fields & clear their values
-        $(selector).val('');
-        $(selector + '_organisation_id').prop('disabled', false).val('').change();
         $(selector + '_full_name').prop('disabled', false).val('');
-        $(selector + '_gender').prop('disabled', false).val('');
-        $(selector + '_date_of_birth').prop('disabled', false).val('');
-        $(selector + '_occupation').prop('disabled', false).val('');
-        $(selector + '_mobile_phone').prop('disabled', false).val('');
-        $(selector + '_home_phone').prop('disabled', false).val('');
-        $(selector + '_email').prop('disabled', false).val('');
+        clear_person_fields(fieldname);
         // Hide the edit button
         $(selector + '_edit_bar .icon-edit').hide();
         // Show the cancel button
@@ -196,7 +217,8 @@
 
     var clear_person_fields = function(fieldname) {
         var selector = '#' + fieldname;
-        // Clear all values & Enable Fields
+        // Clear values & Enable Fields except for full name, as select_person
+        // should retain the name that the user selected via autocomplete.
         $(selector).val('');
         $(selector + '_organisation_id').prop('disabled', false).val('');
         $(selector + '_gender').prop('disabled', false).val('');
